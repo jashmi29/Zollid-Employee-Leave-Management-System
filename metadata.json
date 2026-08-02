@@ -1,0 +1,6 @@
+{
+  "name": "Employee Leave Management System",
+  "description": "A full-stack Employee Leave Management System with JWT authentication, role-based access control, leave request workflows, analytics, and document attachments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
