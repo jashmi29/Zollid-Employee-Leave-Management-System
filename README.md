@@ -1,18 +1,18 @@
-# ZOLLID Employee Leave Management System
+# ZOLLID - Employee Leave Management System
 
-A production-ready, full-stack Employee Leave Management System built with React, TypeScript, Express.js, JWT Authentication, and Supabase. The application provides secure role-based access for employees and managers, enabling leave management, approval workflows, document uploads, notifications, and analytics through a modern enterprise SaaS interface.
-
----
-
-## Live Demo
-
-🔗 https://your-vercel-app.vercel.app
+A production-ready, full-stack Employee Leave Management System built with **React**, **TypeScript**, **Express.js**, **JWT Authentication**, and **Supabase**. The application provides secure role-based access for employees and managers, enabling leave management, approval workflows, document uploads, notifications, and analytics through a modern enterprise SaaS interface.
 
 ---
 
-## Features
+## 🚀 Live Demo
 
-### Authentication & Security
+🔗 **Live Application:** https://your-vercel-app.vercel.app
+
+---
+
+## ✨ Features
+
+### 🔐 Authentication & Security
 - Employee Registration & Login
 - Predefined Manager Account
 - JWT Authentication
@@ -21,28 +21,28 @@ A production-ready, full-stack Employee Leave Management System built with React
 - Protected Manager Routes
 - bcrypt Password Hashing
 
-### Employee Portal
+### 👤 Employee Portal
 - Interactive Dashboard
 - Apply for Leave
 - Leave History
 - Leave Status Tracking
-- Document Uploads
-- Calendar View
+- Supporting Document Uploads
+- Personal Calendar View
 - Real-Time Notifications
-- Withdraw Pending Requests
+- Withdraw Pending Leave Requests
 
-### Manager Portal
-- Dashboard & Analytics
+### 🛡️ Manager Portal
+- Executive Dashboard & Analytics
 - Employee Directory
 - Leave Request Management
 - Approve / Reject Leave Requests
 - Manager Remarks
 - Team Leave Calendar
-- Document Preview
+- Supporting Document Preview
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
 - React
@@ -58,7 +58,7 @@ A production-ready, full-stack Employee Leave Management System built with React
 ### Backend
 - Node.js
 - Express.js
-- JWT (jsonwebtoken)
+- JWT (`jsonwebtoken`)
 - bcryptjs
 - Multer
 
@@ -69,7 +69,7 @@ A production-ready, full-stack Employee Leave Management System built with React
 
 ---
 
-## Project Architecture
+## 🏗️ Project Architecture
 
 ```text
 React + TypeScript
@@ -95,7 +95,7 @@ Supabase Storage
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 employee-leave-management-system/
@@ -120,7 +120,7 @@ employee-leave-management-system/
 
 ---
 
-## Environment Variables
+## ⚙️ Environment Variables
 
 Create a `.env` file in the project root.
 
@@ -135,28 +135,28 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
-Clone the repository:
+### Clone the Repository
 
 ```bash
 git clone https://github.com/your-username/zollid-leave-management-system.git
 cd zollid-leave-management-system
 ```
 
-Install dependencies:
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-Start the development server:
+### Start the Development Server
 
 ```bash
 npm run dev
 ```
 
-Build for production:
+### Build for Production
 
 ```bash
 npm run build
@@ -164,19 +164,18 @@ npm run build
 
 ---
 
-## Screenshots
+## 👩‍💻 Author
 
-> Add screenshots of:
-- Login Page
-- Employee Dashboard
-- Apply Leave
-- Leave History
-- Manager Dashboard
-- Employee Directory
-- Team Calendar
+**Jashmi K S**
+
+Computer Science Engineering Student | Full-Stack Developer | AI & Cybersecurity Enthusiast
+
+- 💼 **LinkedIn:** https://www.linkedin.com/in/jashmi-ks-35a5552a9
+- 💻 **GitHub:** https://github.com/jashmi29
+- 🌐 **Portfolio:** https://jashmi-portfolio.vercel.app
 
 ---
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**.
