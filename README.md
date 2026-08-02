@@ -163,7 +163,19 @@ npm run build
 ```
 
 ---
+## 🔑 Demo Credentials
 
+### Manager Account
+
+```
+Email:
+manager@zollid.in
+
+Password:
+Manager@Zollid2026!
+```
+
+---
 ## 👩‍💻 Author
 
 **Jashmi K S**
