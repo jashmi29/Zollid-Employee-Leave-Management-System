@@ -11,6 +11,7 @@ import { Register } from './pages/Register.js';
 import { EmployeeDashboard } from './pages/employee/Dashboard.js';
 import { ApplyLeave } from './pages/employee/ApplyLeave.js';
 import { LeaveHistory } from './pages/employee/LeaveHistory.js';
+import { LeaveCalendar } from './pages/employee/LeaveCalendar.js';
 import { ManagerDashboard } from './pages/manager/Dashboard.js';
 import { EmployeesPage } from './pages/manager/Employees.js';
 import { ManagerLeaveRequests } from './pages/manager/LeaveRequests.js';
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/dashboard" element={<EmployeeDashboard />} />
               <Route path="/apply-leave" element={<ApplyLeave />} />
               <Route path="/leave-history" element={<LeaveHistory />} />
+              <Route path="/calendar" element={<LeaveCalendar />} />
             </Route>
 
             {/* Protected Manager Routes */}
@@ -73,6 +75,7 @@ export default function App() {
               <Route path="/manager/dashboard" element={<ManagerDashboard />} />
               <Route path="/manager/employees" element={<EmployeesPage />} />
               <Route path="/manager/leave-requests" element={<ManagerLeaveRequests />} />
+              <Route path="/calendar" element={<LeaveCalendar />} />
             </Route>
 
             {/* Root Redirect */}

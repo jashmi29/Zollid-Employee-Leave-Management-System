@@ -9,6 +9,7 @@ import {
   History,
   Users,
   ClipboardList,
+  Calendar,
   LogOut,
   X,
   Shield,
@@ -50,13 +51,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const employeeLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Apply Leave', path: '/apply-leave', icon: FilePlus2 },
-    { name: 'Leave History', path: '/leave-history', icon: History }
+    { name: 'Leave History', path: '/leave-history', icon: History },
+    { name: 'Leave Calendar', path: '/calendar', icon: Calendar }
   ];
 
   const managerLinks = [
     { name: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Employee Directory', path: '/manager/employees', icon: Users },
-    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList }
+    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList },
+    { name: 'Leave Calendar', path: '/calendar', icon: Calendar }
   ];
 
   const links = role === 'manager' ? managerLinks : employeeLinks;
