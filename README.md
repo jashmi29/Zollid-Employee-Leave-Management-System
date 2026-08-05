@@ -4,13 +4,6 @@ A production-ready, full-stack enterprise **Employee Leave Management System** b
 
 ---
 
-## 📌 Project Overview
-
-- **Repository Name**: `zollid-leave-management-system` (or `employee-leave-management-system`)
-- **Description**: An enterprise SaaS application designed for employees to apply for leave, upload medical/supporting documents, track request status, and reset passwords securely. Managers can review organizational requests, view documents, approve/reject applications with feedback, track team availability on a calendar, and monitor leave analytics.
-
----
-
 ## 🌟 Key Features
 
 ### 🔐 Authentication & Security
