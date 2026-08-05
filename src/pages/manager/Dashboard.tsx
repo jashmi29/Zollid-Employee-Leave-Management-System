@@ -407,15 +407,11 @@ export const ManagerDashboard: React.FC = () => {
         }`}
       >
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs font-bold text-blue-500">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Enterprise HR Analytics Center</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
-            Workforce Command & Analytics
+            Manager Dashboard
           </h1>
           <p className={`text-xs sm:text-sm max-w-2xl leading-relaxed ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
-            Real-time workforce insights, interactive leave distribution, attendance metrics, and pending manager approval queue.
+            Review leave requests, monitor employee availability, track leave statistics, and manage your team's leave efficiently.
           </p>
         </div>
 
