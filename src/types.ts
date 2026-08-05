@@ -14,7 +14,7 @@ export interface User {
   leaves?: LeaveRequest[];
 }
 
-export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+export type LeaveStatus = 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected';
 
 export interface LeaveRequest {
   id: number;
@@ -25,6 +25,8 @@ export interface LeaveRequest {
   leave_reason: string;
   start_date: string;
   end_date: string;
+  approved_start_date?: string | null;
+  approved_end_date?: string | null;
   document_url?: string | null;
   status: LeaveStatus;
   remarks?: string | null;

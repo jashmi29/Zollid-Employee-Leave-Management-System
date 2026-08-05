@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 import { ResetPasswordModal } from '../components/ResetPasswordModal.js';
 
 export const Login: React.FC = () => {
-  const { login, isAuthenticated, role } = useAuth();
+  const { login, logout, isAuthenticated, role } = useAuth();
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,10 +83,23 @@ export const Login: React.FC = () => {
       const userObj = userStr ? JSON.parse(userStr) : null;
       const userRole = userObj?.role || role || 'employee';
 
+      // Enforce strict tab role validation
       if (selectedRole === 'manager' && userRole !== 'manager') {
-        toast.error('Account does not have Manager privileges. Redirected to Employee Portal.');
+        logout();
+        setError('Access denied. This account is registered as an Employee. Please switch to the Employee Sign In tab.');
+        return;
+      }
+
+      if (selectedRole === 'employee' && userRole === 'manager') {
+        logout();
+        setError('Access denied. Manager accounts must sign in using the Manager Sign In tab.');
+        return;
+      }
+
+      if (userRole === 'manager') {
+        toast.success(`Welcome back, Manager ${userObj?.fullName || userObj?.username || ''}!`);
       } else {
-        toast.success('Signed in successfully!');
+        toast.success(`Signed in successfully! Welcome, ${userObj?.fullName || userObj?.username || ''}.`);
       }
 
       const finalPath = resolveRedirectPath(userRole);
@@ -283,8 +296,8 @@ export const Login: React.FC = () => {
           <div className={`pt-5 text-center border-t transition-colors duration-300 ${
             isDark ? 'border-slate-800/80' : 'border-slate-100'
           }`}>
-            <p className={`text-xs ${isDark ? 'text-stone-500' : 'text-stone-500'}`}>
-              Manager portal access is restricted to company-issued accounts.
+            <p className={`text-xs ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+              Manager portal access is restricted to company-issued accounts. Valid credentials automatically log into your assigned role portal.
             </p>
           </div>
         )}

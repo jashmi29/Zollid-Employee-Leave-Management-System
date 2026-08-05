@@ -4,19 +4,17 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifications } from '../../hooks/useNotifications.js';
 import { useTheme } from '../../hooks/useTheme.js';
 import { ZollidLogo } from './ZollidLogo.js';
+import { NotificationPanel } from './NotificationPanel.js';
 import {
   Bell,
   LogOut,
   User as UserIcon,
   Shield,
   Menu,
-  CheckCheck,
-  Sparkles,
   Sun,
   Moon,
   ChevronRight
 } from 'lucide-react';
-import { LeaveStatusBadge } from './LeaveStatusBadge.js';
 
 interface NavbarProps {
   onToggleMobileSidebar?: () => void;
@@ -27,21 +25,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const location = useLocation();
   const { user, logout, role } = useAuth();
-  const { unreadNotifications, unreadCount, markAllAsRead } = useNotifications();
+  const { unreadCount } = useNotifications();
   const { isDark, toggleTheme } = useTheme();
 
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on click outside
+  // Close profile menu on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
@@ -135,116 +129,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
-        {/* Notifications Dropdown (Employees only) */}
-        {role === 'employee' && (
-          <div className="relative" ref={notifRef}>
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`relative p-2 rounded-xl border transition-all ${
-                isDark
-                  ? 'text-stone-300 hover:text-white hover:bg-[#33302C] border-transparent hover:border-[#3F3B37]'
-                  : 'text-stone-600 hover:text-stone-900 hover:bg-[#F2ECE1] border-transparent hover:border-[#E2DBD0]'
-              }`}
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-[#22201E] animate-pulse" />
-              )}
-            </button>
-
-            {showNotifications && (
-              <div
-                className={`absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150 ${
-                  isDark
-                    ? 'bg-[#2B2825] border-[#3F3B37] text-stone-100'
-                    : 'bg-[#FFFDF9] border-[#E8E2D8] text-stone-900'
-                }`}
-              >
-                <div
-                  className={`p-3.5 border-b flex items-center justify-between ${
-                    isDark ? 'border-[#3F3B37] bg-[#22201D]' : 'border-[#E8E2D8] bg-[#F8F4EC]'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider ${
-                        isDark ? 'text-stone-200' : 'text-slate-700'
-                      }`}
-                    >
-                      Leave Status Updates {unreadCount > 0 && `(${unreadCount})`}
-                    </span>
-                  </div>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-[11px] font-semibold text-blue-500 hover:text-blue-600 flex items-center space-x-1 transition-colors px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" />
-                      <span>Mark all read</span>
-                    </button>
-                  )}
-                </div>
-
-                <div
-                  className={`max-h-80 overflow-y-auto divide-y ${
-                    isDark ? 'divide-[#383430]' : 'divide-slate-100'
-                  }`}
-                >
-                  {unreadNotifications.length === 0 ? (
-                    <div className="p-8 text-center text-xs space-y-1">
-                      <p className={`font-semibold ${isDark ? 'text-stone-300' : 'text-slate-700'}`}>
-                        All caught up!
-                      </p>
-                      <p className={isDark ? 'text-stone-400' : 'text-slate-500'}>
-                        No unread leave status updates at the moment.
-                      </p>
-                    </div>
-                  ) : (
-                    unreadNotifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className={`p-3.5 transition-colors ${
-                          isDark ? 'hover:bg-[#33302C]' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <LeaveStatusBadge status={notif.status} size="sm" />
-                          <span
-                            className={`text-[10px] font-mono ${
-                              isDark ? 'text-stone-400' : 'text-slate-500'
-                            }`}
-                          >
-                            {new Date(notif.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p
-                          className={`text-xs font-medium line-clamp-1 mb-1 ${
-                            isDark ? 'text-stone-200' : 'text-slate-800'
-                          }`}
-                        >
-                          {notif.leave_reason}
-                        </p>
-                        {notif.remarks && (
-                          <p
-                            className={`text-[11px] p-2 rounded-lg border ${
-                              isDark
-                                ? 'text-stone-300 bg-[#201E1C] border-[#3F3B37]'
-                                : 'text-slate-700 bg-slate-100 border-slate-200'
-                            }`}
-                          >
-                            <span className="font-semibold">Manager Remarks:</span> "{notif.remarks}"
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+        {/* Notification Bell Button (Employee & Manager) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+            className={`relative p-2 rounded-xl border transition-all cursor-pointer ${
+              isDark
+                ? 'text-stone-300 hover:text-white hover:bg-[#33302C] border-transparent hover:border-[#3F3B37]'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-[#F2ECE1] border-transparent hover:border-[#E2DBD0]'
+            }`}
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-[#22201E] animate-pulse" />
             )}
-          </div>
-        )}
+          </button>
+
+          <NotificationPanel
+            isOpen={showNotificationPanel}
+            onClose={() => setShowNotificationPanel(false)}
+          />
+        </div>
 
         {/* Profile Avatar & Dropdown */}
         <div className="relative" ref={profileRef}>

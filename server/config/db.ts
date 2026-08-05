@@ -22,9 +22,11 @@ export interface LeaveRequestRecord {
   reason?: string;
   start_date: string;
   end_date: string;
+  approved_start_date?: string | null;
+  approved_end_date?: string | null;
   duration?: number;
   document_url: string | null;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected';
   remarks: string | null;
   manager_remarks?: string | null;
   notification_read: number;
@@ -597,6 +599,8 @@ export async function getLeavesByEmployeeId(employee_id: number): Promise<LeaveR
         reason: l.leave_reason,
         start_date: l.start_date,
         end_date: l.end_date,
+        approved_start_date: l.approved_start_date || null,
+        approved_end_date: l.approved_end_date || null,
         duration: l.duration || 1,
         document_url: l.document_url,
         status: l.status,
@@ -664,6 +668,8 @@ export async function getAllLeaves(filters?: { status?: string; search?: string 
         reason: l.leave_reason,
         start_date: l.start_date,
         end_date: l.end_date,
+        approved_start_date: l.approved_start_date || null,
+        approved_end_date: l.approved_end_date || null,
         duration: l.duration || 1,
         document_url: l.document_url,
         status: l.status,
@@ -743,27 +749,45 @@ export async function getLeaveById(id: number): Promise<LeaveRequestRecord | nul
 
 export async function updateLeaveStatus(
   id: number,
-  status: 'Approved' | 'Rejected' | 'Pending',
-  remarks?: string | null
+  status: 'Approved' | 'Partially Approved' | 'Rejected' | 'Pending',
+  remarks?: string | null,
+  approved_start_date?: string | null,
+  approved_end_date?: string | null
 ): Promise<LeaveRequestRecord | null> {
   const supabase = getSupabaseClient();
   const now = new Date().toISOString();
 
+  const updateFields: any = {
+    status,
+    manager_remarks: remarks ? remarks.trim() : null,
+    notification_read: 0,
+    updated_at: now
+  };
+  if (approved_start_date) updateFields.approved_start_date = approved_start_date;
+  if (approved_end_date) updateFields.approved_end_date = approved_end_date;
+
   // 1. Try public.leave_requests
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('leave_requests')
-      .update({
-        status,
-        manager_remarks: remarks ? remarks.trim() : null,
-        notification_read: 0,
-        updated_at: now
-      })
+      .update(updateFields)
       .eq('id', id)
       .select('*, users(username, full_name, company_email)')
       .maybeSingle();
 
-    if (!error && data) {
+    if (error && error.code === '42703') {
+      delete updateFields.approved_start_date;
+      delete updateFields.approved_end_date;
+      const retryRes = await supabase
+        .from('leave_requests')
+        .update(updateFields)
+        .eq('id', id)
+        .select('*, users(username, full_name, company_email)')
+        .maybeSingle();
+      data = retryRes.data;
+    }
+
+    if (data) {
       return {
         id: data.id,
         employee_id: data.employee_id,
@@ -772,6 +796,8 @@ export async function updateLeaveStatus(
         reason: data.leave_reason,
         start_date: data.start_date,
         end_date: data.end_date,
+        approved_start_date: approved_start_date || data.approved_start_date || null,
+        approved_end_date: approved_end_date || data.approved_end_date || null,
         duration: data.duration || 1,
         document_url: data.document_url,
         status: data.status,
@@ -803,6 +829,8 @@ export async function updateLeaveStatus(
       const updatedLeave: LeaveRequestRecord = {
         ...userLeaves[leaveIndex],
         status,
+        approved_start_date: approved_start_date || userLeaves[leaveIndex].approved_start_date || null,
+        approved_end_date: approved_end_date || userLeaves[leaveIndex].approved_end_date || null,
         remarks: remarks ? remarks.trim() : null,
         manager_remarks: remarks ? remarks.trim() : null,
         notification_read: 0,
@@ -828,7 +856,7 @@ export async function updateLeaveStatus(
 export async function getUnreadNotifications(employee_id: number): Promise<LeaveRequestRecord[]> {
   const leaves = await getLeavesByEmployeeId(employee_id);
   return leaves.filter(
-    l => l.notification_read === 0 && (l.status === 'Approved' || l.status === 'Rejected')
+    l => l.notification_read === 0 && (l.status === 'Approved' || l.status === 'Partially Approved' || l.status === 'Rejected')
   );
 }
 

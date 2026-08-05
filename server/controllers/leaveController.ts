@@ -119,12 +119,13 @@ export const getAllLeaves = async (req: AuthRequest, res: Response) => {
 export const updateLeaveStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, remarks } = req.body;
+    const { status, remarks, approved_start_date, approved_end_date } = req.body;
 
-    if (!status || !['Approved', 'Rejected', 'Pending'].includes(status)) {
+    const validStatuses = ['Approved', 'Partially Approved', 'Rejected', 'Pending'];
+    if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status. Must be "Approved", "Rejected", or "Pending".'
+        message: 'Invalid status. Must be "Approved", "Partially Approved", "Rejected", or "Pending".'
       });
     }
 
@@ -134,11 +135,24 @@ export const updateLeaveStatus = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'Leave request not found.' });
     }
 
-    const updatedLeave = await dbUpdateLeaveStatus(leaveId, status, remarks);
+    // Validate approved dates if provided
+    let appStart = approved_start_date || null;
+    let appEnd = approved_end_date || null;
+
+    if (status === 'Partially Approved') {
+      if (!appStart || !appEnd) {
+        return res.status(400).json({
+          success: false,
+          message: 'Approved start and end dates are required for Partial Approval.'
+        });
+      }
+    }
+
+    const updatedLeave = await dbUpdateLeaveStatus(leaveId, status, remarks, appStart, appEnd);
 
     return res.json({
       success: true,
-      message: `Leave request has been ${status.toLowerCase()}.`,
+      message: `Leave request status updated to ${status}.`,
       leave: updatedLeave
     });
   } catch (error: any) {

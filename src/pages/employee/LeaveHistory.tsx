@@ -31,7 +31,7 @@ export const LeaveHistory: React.FC = () => {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected'>('All');
 
   const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
   const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
@@ -156,7 +156,7 @@ export const LeaveHistory: React.FC = () => {
               isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#FAF7F2] border-[#E2DBD0]'
             }`}
           >
-            {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((st) => (
+            {(['All', 'Pending', 'Approved', 'Partially Approved', 'Rejected'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
@@ -229,7 +229,12 @@ export const LeaveHistory: React.FC = () => {
               </thead>
               <tbody className={`divide-y text-xs ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
                 {filteredLeaves.map((leave) => {
-                  const days = calculateDurationDays(leave.start_date, leave.end_date);
+                  const requestedDays = calculateDurationDays(leave.start_date, leave.end_date);
+                  const approvedStart = leave.approved_start_date || leave.start_date;
+                  const approvedEnd = leave.approved_end_date || leave.end_date;
+                  const approvedDays = calculateDurationDays(approvedStart, approvedEnd);
+                  const isPartiallyApproved = leave.status === 'Partially Approved' || (leave.approved_start_date && leave.approved_start_date !== leave.start_date);
+
                   const { type, reason } = parseLeaveDetails(leave.leave_reason);
                   const isPending = leave.status === 'Pending';
 
@@ -262,11 +267,18 @@ export const LeaveHistory: React.FC = () => {
                           <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
                           <div>
                             <p className="font-semibold">
-                              {formatDate(leave.start_date)} – {formatDate(leave.end_date)}
+                              {formatDate(approvedStart)} – {formatDate(approvedEnd)}
                             </p>
-                            <span className={`text-[10px] font-normal ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
-                              {days} {days === 1 ? 'day' : 'days'}
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <span className="font-bold text-blue-400">
+                                Approved: {approvedDays} {approvedDays === 1 ? 'day' : 'days'}
+                              </span>
+                              {isPartiallyApproved && (
+                                <span className="text-stone-400 line-through">
+                                  Req: {requestedDays}d ({formatDate(leave.start_date)} – {formatDate(leave.end_date)})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -378,10 +390,15 @@ export const LeaveHistory: React.FC = () => {
         <Modal
           isOpen={!!viewingLeave}
           onClose={() => setViewingLeave(null)}
-          title={`Leave Request #${viewingLeave.id}`}
+          title={`Leave Application Details #${viewingLeave.id}`}
         >
           {(() => {
-            const days = calculateDurationDays(viewingLeave.start_date, viewingLeave.end_date);
+            const requestedDays = calculateDurationDays(viewingLeave.start_date, viewingLeave.end_date);
+            const approvedStart = viewingLeave.approved_start_date || viewingLeave.start_date;
+            const approvedEnd = viewingLeave.approved_end_date || viewingLeave.end_date;
+            const approvedDays = calculateDurationDays(approvedStart, approvedEnd);
+            const isPartiallyApproved = viewingLeave.status === 'Partially Approved' || (viewingLeave.approved_start_date && viewingLeave.approved_start_date !== viewingLeave.start_date);
+
             const { type, reason } = parseLeaveDetails(viewingLeave.leave_reason);
 
             return (
@@ -405,21 +422,33 @@ export const LeaveHistory: React.FC = () => {
                 >
                   <div>
                     <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      Start Date
+                      Approved Duration
                     </p>
-                    <p className="font-semibold text-sm">{formatDate(viewingLeave.start_date)}</p>
+                    <p className="font-extrabold text-sm text-emerald-400">{approvedDays} {approvedDays === 1 ? 'Day' : 'Days'}</p>
+                    {isPartiallyApproved && (
+                      <p className="text-[10px] text-stone-400 line-through">Requested: {requestedDays} Days</p>
+                    )}
                   </div>
 
                   <div>
                     <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      End Date
+                      Approved Dates
                     </p>
-                    <p className="font-semibold text-sm">{formatDate(viewingLeave.end_date)}</p>
+                    <p className="font-medium text-stone-200">{formatDate(approvedStart)} – {formatDate(approvedEnd)}</p>
                   </div>
 
-                  <div className="col-span-2 pt-2 border-t border-stone-500/10 flex items-center justify-between">
-                    <span className={`text-[11px] ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>Total Duration:</span>
-                    <span className="font-extrabold text-blue-500">{days} {days === 1 ? 'Day' : 'Days'}</span>
+                  <div>
+                    <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
+                      Requested Start Date
+                    </p>
+                    <p className="font-medium text-stone-400">{formatDate(viewingLeave.start_date)}</p>
+                  </div>
+
+                  <div>
+                    <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
+                      Requested End Date
+                    </p>
+                    <p className="font-medium text-stone-400">{formatDate(viewingLeave.end_date)}</p>
                   </div>
                 </div>
 
@@ -445,7 +474,7 @@ export const LeaveHistory: React.FC = () => {
                     </p>
                     <div
                       className={`p-3 rounded-xl border italic leading-relaxed ${
-                        isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+                        isDark ? 'bg-[#22201D] border-[#3D3833] text-stone-200' : 'bg-stone-50 border-stone-200 text-stone-800'
                       }`}
                     >
                       "{viewingLeave.remarks}"

@@ -15,6 +15,7 @@ import { LeaveCalendar } from './pages/employee/LeaveCalendar.js';
 import { ManagerDashboard } from './pages/manager/Dashboard.js';
 import { EmployeesPage } from './pages/manager/Employees.js';
 import { ManagerLeaveRequests } from './pages/manager/LeaveRequests.js';
+import { ManagerLeaveCalendar } from './pages/manager/ManagerLeaveCalendar.js';
 import { NotFound } from './pages/NotFound.js';
 
 import { useAuth } from './hooks/useAuth.js';
@@ -74,8 +75,8 @@ export default function App() {
             >
               <Route path="/manager/dashboard" element={<ManagerDashboard />} />
               <Route path="/manager/employees" element={<EmployeesPage />} />
+              <Route path="/manager/calendar" element={<ManagerLeaveCalendar />} />
               <Route path="/manager/leave-requests" element={<ManagerLeaveRequests />} />
-              <Route path="/calendar" element={<LeaveCalendar />} />
             </Route>
 
             {/* Root Redirect */}

@@ -1,64 +1,146 @@
 import { useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
 import { useAuth } from './useAuth.js';
 import { leaveService } from '../services/leaveService.js';
-import { LeaveRequest } from '../types.js';
+import { LeaveRequest, LeaveStatus } from '../types.js';
+import { formatDate } from '../utils/formatters.js';
+
+export interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  remarks?: string | null;
+  timestamp: string;
+  status?: LeaveStatus;
+  created_at?: string;
+}
+
+const DISMISSED_KEY = 'zollid_dismissed_notifications_v1';
+
+const getDismissedIds = (): number[] => {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setDismissedIdsInStorage = (ids: number[]) => {
+  try {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+  } catch (err) {
+    console.error('Failed to save dismissed notifications:', err);
+  }
+};
 
 export const useNotifications = () => {
-  const { user, role, isAuthenticated } = useAuth();
-  const [unreadNotifications, setUnreadNotifications] = useState<LeaveRequest[]>([]);
-  const [hasCheckedOnLogin, setHasCheckedOnLogin] = useState(false);
+  const { role, isAuthenticated } = useAuth();
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<number[]>(getDismissedIds());
 
-  const fetchUnreadNotifications = useCallback(async () => {
-    if (!isAuthenticated || role !== 'employee') return;
+  const parseReason = (fullReason: string) => {
+    if (!fullReason) return '';
+    const match = fullReason.match(/^\[(.*?)\]\s*(.*)$/);
+    return match ? match[2] || fullReason : fullReason;
+  };
+
+  const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated) return;
 
     try {
-      const data = await leaveService.getUnreadNotifications();
-      if (data.success && data.notifications) {
-        setUnreadNotifications(data.notifications);
-
-        // If newly logged in or newly fetched unread items, pop up toast notifications
-        if (data.notifications.length > 0 && !hasCheckedOnLogin) {
-          data.notifications.forEach((notif) => {
+      if (role === 'employee') {
+        const data = await leaveService.getUnreadNotifications();
+        if (data.success && data.notifications) {
+          const list: AppNotification[] = data.notifications.map((notif: LeaveRequest) => {
             const isApproved = notif.status === 'Approved';
-            const message = isApproved
-              ? `Your leave request for "${notif.leave_reason}" was APPROVED!`
-              : `Your leave request for "${notif.leave_reason}" was REJECTED.`;
+            const isPartial = notif.status === 'Partially Approved';
+            
+            let title = 'Leave Status Update';
+            if (isApproved) title = 'Leave Application Approved';
+            else if (isPartial) title = 'Leave Partially Approved';
+            else if (notif.status === 'Rejected') title = 'Leave Application Rejected';
 
-            const remarksMsg = notif.remarks ? ` Remarks: "${notif.remarks}"` : '';
+            const cleanReason = parseReason(notif.leave_reason);
 
-            if (isApproved) {
-              toast.success(`${message}${remarksMsg}`, { duration: 6000 });
-            } else {
-              toast.error(`${message}${remarksMsg}`, { duration: 6000 });
-            }
+            return {
+              id: notif.id,
+              title,
+              message: `Your request for "${cleanReason}" (${formatDate(notif.start_date)} - ${formatDate(notif.end_date)}) was marked as ${notif.status}.`,
+              remarks: notif.remarks,
+              timestamp: notif.created_at ? formatDate(notif.created_at) : 'Recently',
+              status: notif.status
+            };
           });
-          setHasCheckedOnLogin(true);
+
+          setNotifications(list);
+        }
+      } else if (role === 'manager') {
+        // Manager sees pending leave applications requiring action
+        const data = await leaveService.getAllLeaves({ status: 'Pending' });
+        if (data.success && data.leaves) {
+          const list: AppNotification[] = data.leaves.map((leave: LeaveRequest) => {
+            const cleanEmp = leave.employee_name || leave.employee_username || 'Employee';
+            const cleanReason = parseReason(leave.leave_reason);
+
+            return {
+              id: leave.id,
+              title: 'Pending Leave Application',
+              message: `${cleanEmp} submitted a leave request for "${cleanReason}" (${formatDate(leave.start_date)} to ${formatDate(leave.end_date)}).`,
+              remarks: leave.remarks,
+              timestamp: leave.created_at ? formatDate(leave.created_at) : 'Pending Review',
+              status: 'Pending'
+            };
+          });
+
+          setNotifications(list);
         }
       }
     } catch (error) {
-      console.error('Failed to fetch unread notifications:', error);
+      console.error('Failed to fetch notifications:', error);
     }
-  }, [isAuthenticated, role, hasCheckedOnLogin]);
+  }, [isAuthenticated, role]);
 
   useEffect(() => {
-    fetchUnreadNotifications();
-  }, [fetchUnreadNotifications]);
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // Filter out dismissed notifications
+  const visibleNotifications = notifications.filter((n) => !dismissedIds.includes(n.id));
+
+  const dismissNotification = (id: number) => {
+    const updated = [...dismissedIds, id];
+    setDismissedIds(updated);
+    setDismissedIdsInStorage(updated);
+  };
 
   const markAllAsRead = async () => {
-    if (!isAuthenticated || role !== 'employee') return;
-    try {
-      await leaveService.markNotificationsRead();
-      setUnreadNotifications([]);
-    } catch (error) {
-      console.error('Failed to mark notifications as read:', error);
+    if (role === 'employee') {
+      try {
+        await leaveService.markNotificationsRead();
+      } catch (err) {
+        console.error(err);
+      }
     }
+    const allIds = notifications.map((n) => n.id);
+    const updated = Array.from(new Set([...dismissedIds, ...allIds]));
+    setDismissedIds(updated);
+    setDismissedIdsInStorage(updated);
+  };
+
+  const clearAll = () => {
+    const allIds = notifications.map((n) => n.id);
+    const updated = Array.from(new Set([...dismissedIds, ...allIds]));
+    setDismissedIds(updated);
+    setDismissedIdsInStorage(updated);
   };
 
   return {
-    unreadNotifications,
-    unreadCount: unreadNotifications.length,
-    fetchUnreadNotifications,
-    markAllAsRead
+    notifications: visibleNotifications,
+    unreadNotifications: visibleNotifications,
+    unreadCount: visibleNotifications.length,
+    fetchUnreadNotifications: fetchNotifications,
+    dismissNotification,
+    markAllAsRead,
+    clearAll
   };
 };

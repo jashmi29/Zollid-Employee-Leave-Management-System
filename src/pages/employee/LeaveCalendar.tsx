@@ -30,16 +30,18 @@ import toast from 'react-hot-toast';
 export interface CalendarEvent {
   id: string;
   title: string;
-  category: 'Company Holiday' | 'Optional Holiday' | 'Approved Leave' | 'Pending Leave' | 'Rejected Leave';
+  category: 'Company Holiday' | 'Optional Holiday' | 'Approved Leave' | 'Partially Approved Leave' | 'Pending Leave' | 'Rejected Leave';
   dateStr: string; // YYYY-MM-DD
   startDate: string;
   endDate: string;
   type: string; // 'Company Holiday' | 'Optional Holiday' | 'Casual' | 'Sick' | 'Earned' | 'Unpaid' etc.
-  status: 'Company Holiday' | 'Optional Holiday' | 'Approved' | 'Pending' | 'Rejected';
+  status: 'Company Holiday' | 'Optional Holiday' | 'Approved' | 'Partially Approved' | 'Pending' | 'Rejected';
   leaveReason?: string;
   remarks?: string | null;
   documentUrl?: string | null;
   employeeName?: string;
+  approvedStartDate?: string | null;
+  approvedEndDate?: string | null;
 }
 
 export const LeaveCalendar: React.FC = () => {
@@ -50,9 +52,9 @@ export const LeaveCalendar: React.FC = () => {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Active Filter Chip: 'All' | 'Company Holidays' | 'Optional Holidays' | 'My Leaves' | 'Approved' | 'Pending' | 'Rejected'
+  // Active Filter Chip: 'All' | 'Company Holidays' | 'Optional Holidays' | 'My Leaves' | 'Approved' | 'Partially Approved' | 'Pending' | 'Rejected'
   const [activeFilter, setActiveFilter] = useState<
-    'All' | 'Company Holidays' | 'Optional Holidays' | 'My Leaves' | 'Approved' | 'Pending' | 'Rejected'
+    'All' | 'Company Holidays' | 'Optional Holidays' | 'My Leaves' | 'Approved' | 'Partially Approved' | 'Pending' | 'Rejected'
   >('All');
 
   // Selected Date Detail Modal
@@ -178,13 +180,21 @@ export const LeaveCalendar: React.FC = () => {
     leaves.forEach((leave) => {
       const { type, reason } = parseLeaveDetails(leave.leave_reason);
 
-      let cat: 'Approved Leave' | 'Pending Leave' | 'Rejected Leave' = 'Pending Leave';
+      let cat: 'Approved Leave' | 'Partially Approved Leave' | 'Pending Leave' | 'Rejected Leave' = 'Pending Leave';
       if (leave.status === 'Approved') cat = 'Approved Leave';
+      if (leave.status === 'Partially Approved') cat = 'Partially Approved Leave';
       if (leave.status === 'Rejected') cat = 'Rejected Leave';
 
-      // Loop through all days in [start_date, end_date]
-      const start = new Date(leave.start_date);
-      const end = new Date(leave.end_date);
+      // Active approved date range for calendar grid display
+      const activeStart = (leave.status === 'Approved' || leave.status === 'Partially Approved') && leave.approved_start_date
+        ? leave.approved_start_date
+        : leave.start_date;
+      const activeEnd = (leave.status === 'Approved' || leave.status === 'Partially Approved') && leave.approved_end_date
+        ? leave.approved_end_date
+        : leave.end_date;
+
+      const start = new Date(activeStart);
+      const end = new Date(activeEnd);
 
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         const curr = new Date(start);
@@ -206,7 +216,9 @@ export const LeaveCalendar: React.FC = () => {
             leaveReason: reason,
             remarks: leave.remarks,
             documentUrl: leave.document_url,
-            employeeName: leave.employee_name || leave.employee_username
+            employeeName: leave.employee_name || leave.employee_username,
+            approvedStartDate: leave.approved_start_date,
+            approvedEndDate: leave.approved_end_date
           });
 
           curr.setDate(curr.getDate() + 1);
@@ -246,11 +258,13 @@ export const LeaveCalendar: React.FC = () => {
     if (activeFilter === 'My Leaves') {
       return (
         event.category === 'Approved Leave' ||
+        event.category === 'Partially Approved Leave' ||
         event.category === 'Pending Leave' ||
         event.category === 'Rejected Leave'
       );
     }
     if (activeFilter === 'Approved') return event.category === 'Approved Leave';
+    if (activeFilter === 'Partially Approved') return event.category === 'Partially Approved Leave';
     if (activeFilter === 'Pending') return event.category === 'Pending Leave';
     if (activeFilter === 'Rejected') return event.category === 'Rejected Leave';
     return true;
@@ -429,30 +443,40 @@ export const LeaveCalendar: React.FC = () => {
             <span>Indicator Legend:</span>
           </span>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 font-semibold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>Company Holiday</span>
-            </div>
-
-            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 font-semibold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-              <span>Optional Holiday</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+              <span>🟢 Approved</span>
             </div>
 
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400 font-semibold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span>Approved Leave</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)]" />
+              <span>🔵 Partially Approved</span>
             </div>
 
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-amber-500/10 border-amber-500/20 text-amber-400 font-semibold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span>Pending Leave</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+              <span>🟡 Pending</span>
             </div>
 
             <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-rose-500/10 border-rose-500/20 text-rose-400 font-semibold text-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span>Rejected Leave</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.8)]" />
+              <span>🔴 Rejected</span>
+            </div>
+
+            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 font-semibold text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_6px_rgba(168,85,247,0.8)]" />
+              <span>🟣 Company Holiday</span>
+            </div>
+
+            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-violet-500/10 border-violet-500/20 text-violet-400 font-semibold text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-400 shadow-[0_0_6px_rgba(139,92,246,0.8)]" />
+              <span>🟪 Optional Holiday</span>
+            </div>
+
+            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border bg-stone-500/10 border-stone-500/20 text-stone-400 font-semibold text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-stone-400" />
+              <span>⚪ Weekend</span>
             </div>
           </div>
         </div>
@@ -473,6 +497,7 @@ export const LeaveCalendar: React.FC = () => {
               'Optional Holidays',
               'My Leaves',
               'Approved',
+              'Partially Approved',
               'Pending',
               'Rejected'
             ] as const
@@ -498,124 +523,175 @@ export const LeaveCalendar: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Calendar Grid */}
-      <div
-        className={`border rounded-2xl overflow-hidden shadow-2xl transition-colors duration-300 ${
-          isDark ? 'bg-[#292623] border-[#3D3833]' : 'bg-[#FCFAF7] border-[#E8E2D8] shadow-sm'
-        }`}
-      >
-        {/* Days of week header */}
+      {/* Main Calendar Grid Container (with Horizontal Scroll support on Mobile) */}
+      <div className="overflow-x-auto pb-2">
         <div
-          className={`grid grid-cols-7 border-b text-center text-[11px] font-bold uppercase tracking-wider ${
-            isDark
-              ? 'bg-[#22201D] border-[#3D3833] text-stone-400'
-              : 'bg-[#F8F4EC] border-[#E8E2D8] text-stone-600'
+          className={`min-w-[640px] md:min-w-0 border rounded-2xl overflow-hidden shadow-2xl transition-colors duration-300 ${
+            isDark ? 'bg-[#292623] border-[#3D3833]' : 'bg-[#FCFAF7] border-[#E8E2D8] shadow-sm'
           }`}
         >
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="py-3.5 px-1 border-r last:border-r-0 border-stone-500/10">
-              {day}
-            </div>
-          ))}
-        </div>
+          {/* Days of week header */}
+          <div
+            className={`grid grid-cols-7 border-b text-center text-[11px] font-bold uppercase tracking-wider ${
+              isDark
+                ? 'bg-[#22201D] border-[#3D3833] text-stone-400'
+                : 'bg-[#F8F4EC] border-[#E8E2D8] text-stone-600'
+            }`}
+          >
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="py-3 px-1 border-r last:border-r-0 border-stone-500/10">
+                {day}
+              </div>
+            ))}
+          </div>
 
-        {/* Calendar Day Cells */}
-        <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y border-b text-xs divide-stone-500/15 border-stone-500/15">
-          {calendarDays.map((cell, idx) => {
-            const allCellEvents = allEventsMap.get(cell.dateStr) || [];
-            const filteredCellEvents = allCellEvents.filter(isEventMatchingFilter);
+          {/* Calendar Day Cells */}
+          <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y border-b text-xs divide-stone-500/15 border-stone-500/15">
+            {calendarDays.map((cell, idx) => {
+              const allCellEvents = allEventsMap.get(cell.dateStr) || [];
+              const filteredCellEvents = allCellEvents.filter(isEventMatchingFilter);
 
-            return (
-              <div
-                key={`${cell.dateStr}-${idx}`}
-                onClick={() => {
-                  if (filteredCellEvents.length > 0) {
-                    setSelectedDateStr(cell.dateStr);
-                  }
-                }}
-                className={`min-h-[95px] sm:min-h-[110px] p-1.5 sm:p-2 transition-all flex flex-col justify-between group ${
-                  filteredCellEvents.length > 0 ? 'cursor-pointer hover:bg-blue-500/5' : ''
-                } ${
-                  !cell.isCurrentMonth
-                    ? isDark
-                      ? 'bg-[#1D1B19]/50 text-stone-600'
-                      : 'bg-stone-100/50 text-stone-400'
-                    : isDark
-                    ? 'bg-[#292623] text-stone-200'
-                    : 'bg-[#FCFAF7] text-stone-800'
-                }`}
-              >
-                {/* Date Number Header */}
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                      cell.isToday
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/30'
-                        : cell.isCurrentMonth
-                        ? isDark
-                          ? 'text-stone-200 group-hover:text-blue-400'
-                          : 'text-stone-800 group-hover:text-blue-600'
-                        : 'text-stone-400'
-                    }`}
-                  >
-                    {cell.dayNum}
-                  </span>
+              const cellDate = new Date(cell.dateStr);
+              const dayOfWeek = cellDate.getDay();
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-                  {cell.isToday && (
-                    <span className="hidden sm:inline-block text-[9px] font-extrabold text-blue-500 uppercase tracking-tight">
-                      Today
+              const companyHolidays = filteredCellEvents.filter((e) => e.category === 'Company Holiday');
+              const optionalHolidays = filteredCellEvents.filter((e) => e.category === 'Optional Holiday');
+              const approvedLeaves = filteredCellEvents.filter((e) => e.category === 'Approved Leave');
+              const partiallyApprovedLeaves = filteredCellEvents.filter((e) => e.category === 'Partially Approved Leave');
+              const pendingLeaves = filteredCellEvents.filter((e) => e.category === 'Pending Leave');
+              const rejectedLeaves = filteredCellEvents.filter((e) => e.category === 'Rejected Leave');
+
+              const isSelected = cell.dateStr === selectedDateStr;
+
+              let bgClass = '';
+              if (isSelected) {
+                bgClass = isDark
+                  ? 'bg-blue-950/25 border-blue-500/30 text-stone-100 shadow-inner'
+                  : 'bg-blue-50/70 border-blue-200 text-stone-900 shadow-inner';
+              } else if (!cell.isCurrentMonth) {
+                bgClass = isDark
+                  ? 'bg-[#1D1B19]/50 text-stone-600'
+                  : 'bg-stone-100/50 text-stone-400';
+              } else if (isWeekend) {
+                bgClass = isDark
+                  ? 'bg-[#22201D]/80 text-stone-300 hover:bg-[#2B2825]'
+                  : 'bg-[#F5F0E6]/60 text-stone-700 hover:bg-[#EAE2D3]';
+              } else {
+                bgClass = isDark
+                  ? 'bg-[#292623] text-stone-200 hover:bg-[#33302C]'
+                  : 'bg-[#FCFAF7] text-stone-800 hover:bg-[#F4ECE1]';
+              }
+
+              return (
+                <div
+                  key={`${cell.dateStr}-${idx}`}
+                  onClick={() => {
+                    if (filteredCellEvents.length > 0) {
+                      setSelectedDateStr(cell.dateStr);
+                    }
+                  }}
+                  className={`min-h-[110px] sm:min-h-[125px] p-2.5 sm:p-3 transition-all duration-200 flex flex-col justify-between cursor-pointer relative group hover:shadow-md hover:z-10 ${bgClass}`}
+                >
+                  {/* Date Number Header */}
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-transform group-hover:scale-105 ${
+                        cell.isToday
+                          ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/30'
+                          : isSelected
+                          ? 'bg-blue-500/20 text-blue-500 font-extrabold border border-blue-500/30'
+                          : cell.isCurrentMonth
+                          ? isDark
+                            ? 'text-stone-200'
+                            : 'text-stone-800'
+                          : 'text-stone-500'
+                      }`}
+                    >
+                      {cell.dayNum}
                     </span>
+
+                    {cell.isToday ? (
+                      <span className="text-[9px] font-extrabold text-blue-500 uppercase tracking-tight">
+                        Today
+                      </span>
+                    ) : isWeekend && cell.isCurrentMonth ? (
+                      <span className="text-[9px] font-semibold text-stone-400 uppercase tracking-tight">
+                        Wknd
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Clean Indicator Badges (Purple/Violet for Holiday, Dots for Status) */}
+                  <div className="space-y-1.5 my-1">
+                    {companyHolidays.length > 0 && (
+                      <div
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors ${
+                          isDark
+                            ? 'bg-purple-950/60 text-purple-300 border border-purple-800/50'
+                            : 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                        }`}
+                        title={companyHolidays.map((h) => h.title).join(', ')}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0 shadow-[0_0_4px_rgba(168,85,247,0.6)]" />
+                        <span>Holiday</span>
+                      </div>
+                    )}
+
+                    {optionalHolidays.length > 0 && (
+                      <div
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors ${
+                          isDark
+                            ? 'bg-violet-950/60 text-violet-300 border border-violet-800/50'
+                            : 'bg-violet-50 text-violet-700 border border-violet-200/80'
+                        }`}
+                        title={optionalHolidays.map((h) => h.title).join(', ')}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0 shadow-[0_0_4px_rgba(139,92,246,0.6)]" />
+                        <span>Opt. Hol.</span>
+                      </div>
+                    )}
+
+                    {/* Minimal Glowing Dots for Leave Statuses */}
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      {approvedLeaves.length > 0 && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] shrink-0"
+                          title={`${approvedLeaves.length} Approved Leave(s)`}
+                        />
+                      )}
+
+                      {partiallyApprovedLeaves.length > 0 && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)] shrink-0"
+                          title={`${partiallyApprovedLeaves.length} Partially Approved Leave(s)`}
+                        />
+                      )}
+
+                      {pendingLeaves.length > 0 && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] shrink-0"
+                          title={`${pendingLeaves.length} Pending Leave(s)`}
+                        />
+                      )}
+
+                      {rejectedLeaves.length > 0 && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.8)] shrink-0"
+                          title={`${rejectedLeaves.length} Rejected Leave(s)`}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Subtle selection bar */}
+                  {isSelected && (
+                    <div className="h-0.5 w-full bg-blue-500/80 rounded-full mt-auto" />
                   )}
                 </div>
-
-                {/* Event Indicators list */}
-                <div className="space-y-1 flex-1 overflow-y-auto max-h-[70px] sm:max-h-[80px] scrollbar-none">
-                  {filteredCellEvents.map((ev) => {
-                    let badgeClass = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-                    let dotClass = 'bg-blue-500';
-
-                    if (ev.category === 'Company Holiday') {
-                      badgeClass = isDark
-                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/80 hover:bg-emerald-900/80'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100';
-                      dotClass = 'bg-emerald-500';
-                    } else if (ev.category === 'Optional Holiday') {
-                      badgeClass = isDark
-                        ? 'bg-purple-950/60 text-purple-300 border-purple-800/80 hover:bg-purple-900/80'
-                        : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100';
-                      dotClass = 'bg-purple-500';
-                    } else if (ev.category === 'Approved Leave') {
-                      badgeClass = isDark
-                        ? 'bg-blue-950/60 text-blue-300 border-blue-800/80 hover:bg-blue-900/80'
-                        : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100';
-                      dotClass = 'bg-blue-500';
-                    } else if (ev.category === 'Pending Leave') {
-                      badgeClass = isDark
-                        ? 'bg-amber-950/60 text-amber-300 border-amber-800/80 hover:bg-amber-900/80'
-                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100';
-                      dotClass = 'bg-amber-500';
-                    } else if (ev.category === 'Rejected Leave') {
-                      badgeClass = isDark
-                        ? 'bg-rose-950/60 text-rose-300 border-rose-800/80 hover:bg-rose-900/80'
-                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100';
-                      dotClass = 'bg-rose-500';
-                    }
-
-                    return (
-                      <div
-                        key={ev.id}
-                        className={`px-1.5 py-1 rounded-md border text-[10px] font-bold transition-all truncate flex items-center space-x-1 ${badgeClass}`}
-                        title={`${ev.title} (${ev.category})`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClass}`} />
-                        <span className="truncate leading-none">{ev.title}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 

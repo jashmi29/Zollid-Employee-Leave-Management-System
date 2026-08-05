@@ -58,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const managerLinks = [
     { name: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Employee Directory', path: '/manager/employees', icon: Users },
-    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList },
-    { name: 'Leave Calendar', path: '/calendar', icon: Calendar }
+    { name: 'Leave Calendar', path: '/manager/calendar', icon: Calendar },
+    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList }
   ];
 
   const links = role === 'manager' ? managerLinks : employeeLinks;

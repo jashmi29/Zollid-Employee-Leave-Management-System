@@ -1,5 +1,5 @@
 import api from './api.js';
-import { LeaveRequest } from '../types.js';
+import { LeaveRequest, LeaveStatus } from '../types.js';
 
 export const leaveService = {
   async applyLeave(formData: FormData): Promise<{ success: boolean; message: string; leave: LeaveRequest }> {
@@ -25,10 +25,16 @@ export const leaveService = {
     return response.data;
   },
 
-  async updateLeaveStatus(id: number, status: 'Approved' | 'Rejected' | 'Pending', remarks?: string): Promise<{ success: boolean; message: string; leave: LeaveRequest }> {
+  async updateLeaveStatus(
+    id: number,
+    status: LeaveStatus,
+    remarks?: string,
+    approved_start_date?: string,
+    approved_end_date?: string
+  ): Promise<{ success: boolean; message: string; leave: LeaveRequest }> {
     const response = await api.put<{ success: boolean; message: string; leave: LeaveRequest }>(
       `/leaves/${id}/status`,
-      { status, remarks }
+      { status, remarks, approved_start_date, approved_end_date }
     );
     return response.data;
   },

@@ -40,7 +40,7 @@ export const EmployeeDashboard: React.FC = () => {
   const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
 
   // Filters & Search
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected'>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Delete / Withdraw Leave State
@@ -69,12 +69,17 @@ export const EmployeeDashboard: React.FC = () => {
   // Compute analytics
   const totalCount = leaves.length;
   const pendingCount = leaves.filter((l) => l.status === 'Pending').length;
-  const approvedCount = leaves.filter((l) => l.status === 'Approved').length;
+  const approvedCount = leaves.filter((l) => l.status === 'Approved' || l.status === 'Partially Approved').length;
+  const partiallyApprovedCount = leaves.filter((l) => l.status === 'Partially Approved').length;
   const rejectedCount = leaves.filter((l) => l.status === 'Rejected').length;
 
   const totalApprovedDays = leaves
-    .filter((l) => l.status === 'Approved')
-    .reduce((acc, l) => acc + calculateDurationDays(l.start_date, l.end_date), 0);
+    .filter((l) => l.status === 'Approved' || l.status === 'Partially Approved')
+    .reduce((acc, l) => {
+      const start = l.approved_start_date || l.start_date;
+      const end = l.approved_end_date || l.end_date;
+      return acc + calculateDurationDays(start, end);
+    }, 0);
 
   // Username display calculation (strictly username, never email)
   const displayUsername = (() => {
@@ -414,7 +419,7 @@ export const EmployeeDashboard: React.FC = () => {
         >
           {/* Status Tabs */}
           <div className="flex items-center space-x-1 overflow-x-auto pb-1 md:pb-0">
-            {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((status) => {
+            {(['All', 'Pending', 'Approved', 'Partially Approved', 'Rejected'] as const).map((status) => {
               const active = statusFilter === status;
               return (
                 <button

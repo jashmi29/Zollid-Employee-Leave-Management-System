@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../hooks/useTheme.js';
 import { leaveService } from '../../services/leaveService.js';
-import { LeaveRequest } from '../../types.js';
+import { LeaveRequest, LeaveStatus } from '../../types.js';
 import { LeaveStatusBadge } from '../../components/common/LeaveStatusBadge.js';
 import { TableSkeleton } from '../../components/common/SkeletonLoader.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
+import { ReviewRequestModal } from '../../components/common/ReviewRequestModal.js';
 import { Modal } from '../../components/common/Modal.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
 import {
@@ -22,7 +23,8 @@ import {
   Tag,
   Eye,
   Mail,
-  AtSign
+  AtSign,
+  Edit3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -36,10 +38,8 @@ export const ManagerLeaveRequests: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
 
-  // Status Action Modal states
-  const [actionLeave, setActionLeave] = useState<LeaveRequest | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Review Modal state
+  const [reviewRequest, setReviewRequest] = useState<LeaveRequest | null>(null);
 
   // Request Details Modal
   const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
@@ -78,31 +78,31 @@ export const ManagerLeaveRequests: React.FC = () => {
     return { type: 'Annual', reason: reasonStr };
   };
 
-  const handleAction = async (remarks?: string) => {
-    if (!actionLeave || !actionType) return;
-
+  const handleReviewSubmit = async (data: {
+    id: number;
+    status: LeaveStatus;
+    remarks: string;
+    approved_start_date?: string;
+    approved_end_date?: string;
+  }) => {
     try {
-      setIsSubmitting(true);
-      const newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
-      const res = await leaveService.updateLeaveStatus(actionLeave.id, newStatus, remarks);
-
+      const res = await leaveService.updateLeaveStatus(
+        data.id,
+        data.status,
+        data.remarks,
+        data.approved_start_date,
+        data.approved_end_date
+      );
       if (res.success) {
-        toast.success(
-          `Leave request for ${actionLeave.employee_name || actionLeave.employee_username} ${newStatus.toLowerCase()}.`
-        );
-        setLeaves((prev) =>
-          prev.map((l) => (l.id === actionLeave.id ? { ...l, status: newStatus, remarks } : l))
-        );
-        if (viewingLeave && viewingLeave.id === actionLeave.id) {
+        toast.success(`Leave request #${data.id} updated to ${data.status}.`);
+        fetchLeaves();
+        if (viewingLeave && viewingLeave.id === data.id) {
           setViewingLeave(null);
         }
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update leave status.');
-    } finally {
-      setIsSubmitting(false);
-      setActionLeave(null);
-      setActionType(null);
+      toast.error(err.message || 'Failed to update leave request status.');
+      throw err;
     }
   };
 
@@ -158,7 +158,7 @@ export const ManagerLeaveRequests: React.FC = () => {
               isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#FAF7F2] border-[#E2DBD0]'
             }`}
           >
-            {(['All', 'Pending', 'Approved', 'Rejected'] as const).map((st) => (
+            {(['All', 'Pending', 'Approved', 'Partially Approved', 'Rejected'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
@@ -215,7 +215,12 @@ export const ManagerLeaveRequests: React.FC = () => {
               </thead>
               <tbody className={`divide-y text-xs ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
                 {leaves.map((leave) => {
-                  const days = calculateDurationDays(leave.start_date, leave.end_date);
+                  const requestedDays = calculateDurationDays(leave.start_date, leave.end_date);
+                  const approvedStart = leave.approved_start_date || leave.start_date;
+                  const approvedEnd = leave.approved_end_date || leave.end_date;
+                  const approvedDays = calculateDurationDays(approvedStart, approvedEnd);
+                  const isPartiallyApproved = leave.status === 'Partially Approved' || (leave.approved_start_date && leave.approved_start_date !== leave.start_date);
+
                   const { type, reason } = parseLeaveDetails(leave.leave_reason);
 
                   const cleanEmpUsername = leave.employee_username?.includes('@')
@@ -226,7 +231,6 @@ export const ManagerLeaveRequests: React.FC = () => {
                     ? rawEmpName
                     : cleanEmpUsername.charAt(0).toUpperCase() + cleanEmpUsername.slice(1);
                   const empEmail = leave.employee_email || '';
-                  const isPending = leave.status === 'Pending';
 
                   return (
                     <tr
@@ -268,11 +272,18 @@ export const ManagerLeaveRequests: React.FC = () => {
                           <Calendar className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-stone-500' : 'text-stone-400'}`} />
                           <div>
                             <p className="font-semibold">
-                              {formatDate(leave.start_date)} – {formatDate(leave.end_date)}
+                              {formatDate(approvedStart)} – {formatDate(approvedEnd)}
                             </p>
-                            <span className={`text-[10px] ${isDark ? 'text-stone-400' : 'text-stone-500'}`}>
-                              {days} {days === 1 ? 'day' : 'days'}
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <span className="font-bold text-blue-400">
+                                Approved: {approvedDays} {approvedDays === 1 ? 'day' : 'days'}
+                              </span>
+                              {isPartiallyApproved && (
+                                <span className="text-stone-400 line-through">
+                                  Req: {requestedDays}d
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -325,64 +336,30 @@ export const ManagerLeaveRequests: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Status-aware Actions */}
+                      {/* Actions */}
                       <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-2">
-                          {isPending ? (
-                            <>
-                              {/* Pending Review button opens details with decision actions */}
-                              <button
-                                type="button"
-                                onClick={() => setViewingLeave(leave)}
-                                className={`px-3 py-1.5 rounded-xl border transition-colors text-xs font-semibold flex items-center space-x-1 ${
-                                  isDark
-                                    ? 'bg-[#33302C] hover:bg-[#3D3833] text-stone-200 border-[#3D3833]'
-                                    : 'bg-[#F2ECE1] hover:bg-[#EAE2D3] text-stone-800 border-[#E2DBD0]'
-                                }`}
-                              >
-                                <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                <span>Review</span>
-                              </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewRequest(leave)}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1.5 shadow-sm transition-all"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Review Request</span>
+                          </button>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActionLeave(leave);
-                                  setActionType('approve');
-                                }}
-                                className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 font-semibold rounded-xl transition-all text-[11px] flex items-center space-x-1"
-                                title="Approve"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActionLeave(leave);
-                                  setActionType('reject');
-                                }}
-                                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/20 font-semibold rounded-xl transition-all text-[11px] flex items-center space-x-1"
-                                title="Reject"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          ) : (
-                            /* Approved or Rejected requests: View Details only */
-                            <button
-                              type="button"
-                              onClick={() => setViewingLeave(leave)}
-                              className={`px-3 py-1.5 rounded-xl border transition-colors text-xs font-semibold flex items-center space-x-1.5 ${
-                                isDark
-                                  ? 'bg-[#33302C] hover:bg-[#3D3833] text-stone-300 border-[#3D3833]'
-                                  : 'bg-[#F2ECE1] hover:bg-[#EAE2D3] text-stone-700 border-[#E2DBD0]'
-                              }`}
-                            >
-                              <Eye className="w-3.5 h-3.5 text-stone-400" />
-                              <span>View Details</span>
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setViewingLeave(leave)}
+                            className={`px-3 py-1.5 rounded-xl border transition-colors text-xs font-semibold flex items-center space-x-1 ${
+                              isDark
+                                ? 'bg-[#33302C] hover:bg-[#3D3833] text-stone-300 border-[#3D3833]'
+                                : 'bg-[#F2ECE1] hover:bg-[#EAE2D3] text-stone-700 border-[#E2DBD0]'
+                            }`}
+                          >
+                            <Eye className="w-3.5 h-3.5 text-stone-400" />
+                            <span>Details</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -399,10 +376,15 @@ export const ManagerLeaveRequests: React.FC = () => {
         <Modal
           isOpen={!!viewingLeave}
           onClose={() => setViewingLeave(null)}
-          title={`Leave Request Details #${viewingLeave.id}`}
+          title={`Leave Application Details #${viewingLeave.id}`}
         >
           {(() => {
-            const days = calculateDurationDays(viewingLeave.start_date, viewingLeave.end_date);
+            const requestedDays = calculateDurationDays(viewingLeave.start_date, viewingLeave.end_date);
+            const approvedStart = viewingLeave.approved_start_date || viewingLeave.start_date;
+            const approvedEnd = viewingLeave.approved_end_date || viewingLeave.end_date;
+            const approvedDays = calculateDurationDays(approvedStart, approvedEnd);
+            const isPartiallyApproved = viewingLeave.status === 'Partially Approved' || (viewingLeave.approved_start_date && viewingLeave.approved_start_date !== viewingLeave.start_date);
+
             const { type, reason } = parseLeaveDetails(viewingLeave.leave_reason);
             const cleanEmpUsername = viewingLeave.employee_username?.includes('@')
               ? viewingLeave.employee_username.split('@')[0]
@@ -412,7 +394,6 @@ export const ManagerLeaveRequests: React.FC = () => {
               ? rawEmpName
               : cleanEmpUsername.charAt(0).toUpperCase() + cleanEmpUsername.slice(1);
             const empEmail = viewingLeave.employee_email || '';
-            const isPending = viewingLeave.status === 'Pending';
 
             return (
               <div className="space-y-4 text-xs">
@@ -439,7 +420,7 @@ export const ManagerLeaveRequests: React.FC = () => {
                   <LeaveStatusBadge status={viewingLeave.status} />
                 </div>
 
-                {/* Details Grid */}
+                {/* Duration & Dates Grid */}
                 <div
                   className={`p-3.5 rounded-xl border grid grid-cols-2 gap-3 ${
                     isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#FAF7F2] border-[#E2DBD0]'
@@ -454,23 +435,26 @@ export const ManagerLeaveRequests: React.FC = () => {
 
                   <div>
                     <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      Duration
+                      Approved Duration
                     </p>
-                    <p className="font-extrabold text-stone-200">{days} {days === 1 ? 'Day' : 'Days'}</p>
+                    <p className="font-extrabold text-emerald-400">{approvedDays} {approvedDays === 1 ? 'Day' : 'Days'}</p>
+                    {isPartiallyApproved && (
+                      <p className="text-[10px] text-stone-400 line-through">Requested: {requestedDays} Days</p>
+                    )}
                   </div>
 
                   <div>
                     <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      Start Date
+                      Approved Dates
                     </p>
-                    <p className="font-medium">{formatDate(viewingLeave.start_date)}</p>
+                    <p className="font-medium text-stone-200">{formatDate(approvedStart)} – {formatDate(approvedEnd)}</p>
                   </div>
 
                   <div>
                     <p className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      End Date
+                      Requested Dates
                     </p>
-                    <p className="font-medium">{formatDate(viewingLeave.end_date)}</p>
+                    <p className="font-medium text-stone-400">{formatDate(viewingLeave.start_date)} – {formatDate(viewingLeave.end_date)}</p>
                   </div>
 
                   {viewingLeave.created_at && (
@@ -495,6 +479,18 @@ export const ManagerLeaveRequests: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Manager Remarks */}
+                {viewingLeave.remarks && (
+                  <div>
+                    <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
+                      Manager Remarks
+                    </p>
+                    <p className={`p-3 rounded-xl border italic ${isDark ? 'bg-[#22201D] border-[#3D3833] text-stone-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`}>
+                      "{viewingLeave.remarks}"
+                    </p>
+                  </div>
+                )}
+
                 {/* Supporting Document */}
                 <div>
                   <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
@@ -514,18 +510,6 @@ export const ManagerLeaveRequests: React.FC = () => {
                   )}
                 </div>
 
-                {/* Manager Remarks */}
-                {viewingLeave.remarks && (
-                  <div>
-                    <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${isDark ? 'text-stone-500' : 'text-stone-400'}`}>
-                      Manager Remarks
-                    </p>
-                    <p className={`p-2.5 rounded-xl border italic ${isDark ? 'bg-[#22201D] border-[#3D3833] text-stone-300' : 'bg-stone-50 border-stone-200 text-stone-700'}`}>
-                      "{viewingLeave.remarks}"
-                    </p>
-                  </div>
-                )}
-
                 {/* Footer Actions */}
                 <div className={`pt-3 border-t flex items-center justify-between gap-3 ${isDark ? 'border-[#3D3833]' : 'border-[#E8E2D8]'}`}>
                   <button
@@ -540,33 +524,17 @@ export const ManagerLeaveRequests: React.FC = () => {
                     Close
                   </button>
 
-                  {isPending && (
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionLeave(viewingLeave);
-                          setActionType('reject');
-                        }}
-                        className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition-all"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Reject Request</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionLeave(viewingLeave);
-                          setActionType('approve');
-                        }}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition-all"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve Request</span>
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewRequest(viewingLeave);
+                      setViewingLeave(null);
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs flex items-center space-x-1.5 shadow-md transition-all"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Review Application</span>
+                  </button>
                 </div>
               </div>
             );
@@ -574,25 +542,13 @@ export const ManagerLeaveRequests: React.FC = () => {
         </Modal>
       )}
 
-      {/* Confirmation Modal */}
-      {actionLeave && actionType && (
-        <ConfirmModal
-          isOpen={!!actionLeave}
-          onClose={() => {
-            setActionLeave(null);
-            setActionType(null);
-          }}
-          onConfirm={handleAction}
-          title={`${actionType === 'approve' ? 'Approve' : 'Reject'} Leave Application?`}
-          description={`Update leave request status for ${
-            actionLeave.employee_name || actionLeave.employee_username
-          }. Add optional manager remarks.`}
-          confirmType={actionType}
-          confirmText={actionType === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
-          showRemarksInput={true}
-          isLoading={isSubmitting}
-        />
-      )}
+      {/* Review Request Modal */}
+      <ReviewRequestModal
+        isOpen={!!reviewRequest}
+        onClose={() => setReviewRequest(null)}
+        request={reviewRequest}
+        onSubmit={handleReviewSubmit}
+      />
 
       {/* Document Viewer Modal */}
       <DocumentViewerModal
