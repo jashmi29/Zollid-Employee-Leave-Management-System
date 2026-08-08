@@ -1,6 +1,7 @@
 import React from 'react';
-import { Sparkles, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
+import { Custom3DHeroArtwork } from './Custom3DHeroArtwork.js';
 
 export const EnterpriseHeroIllustration: React.FC = () => {
   const { isDark } = useTheme();
@@ -35,47 +36,8 @@ export const EnterpriseHeroIllustration: React.FC = () => {
         </p>
       </div>
 
-      {/* Hero Illustration Canvas Placeholder */}
-      <div className={`relative w-full flex-1 min-h-[220px] max-h-[380px] aspect-[16/10] rounded-2xl border flex flex-col items-center justify-center p-6 sm:p-8 transition-all duration-200 overflow-hidden ${
-        isDark
-          ? 'bg-[#1C1A18] border-[#36322D]'
-          : 'bg-[#FAF8F5] border-[#E0D9CB]'
-      }`}>
-
-        {/* Minimal Grid Pattern */}
-        <div
-          className={`absolute inset-0 pointer-events-none ${
-            isDark ? 'opacity-[0.1]' : 'opacity-[0.2]'
-          }`}
-          style={{
-            backgroundImage: `radial-gradient(${isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(100, 90, 80, 0.2)'} 1px, transparent 1px)`,
-            backgroundSize: '24px 24px'
-          }}
-        />
-
-        {/* Central Clean Artwork Badge */}
-        <div className="relative z-10 flex flex-col items-center text-center space-y-3 max-w-sm">
-          <div className="w-13 h-13 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-            <Calendar className="w-6 h-6" />
-          </div>
-          
-          <div className="space-y-1">
-            <span className={`inline-flex items-center space-x-2 text-xs font-bold px-3 py-1 rounded-lg border ${
-              isDark
-                ? 'text-stone-200 bg-[#242220] border-[#3A3631]'
-                : 'text-stone-800 bg-white border-[#DCD5C8]'
-            }`}>
-              <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-              <span>Hero Illustration Canvas</span>
-            </span>
-            <p className={`text-xs font-medium ${
-              isDark ? 'text-stone-400' : 'text-stone-600'
-            }`}>
-              Placeholder area for custom 3D artwork or brand graphics
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* 3D Clay Artwork Canvas */}
+      <Custom3DHeroArtwork />
 
     </div>
   );

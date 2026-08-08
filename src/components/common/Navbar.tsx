@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifications } from '../../hooks/useNotifications.js';
 import { useTheme } from '../../hooks/useTheme.js';
@@ -50,9 +50,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (path === '/dashboard') return { portal: 'Employee', title: 'Dashboard Overview' };
     if (path === '/apply-leave') return { portal: 'Employee', title: 'Apply Leave' };
     if (path === '/leave-history') return { portal: 'Employee', title: 'Leave History' };
+    if (path === '/calendar') return { portal: 'Employee', title: 'Leave Calendar' };
+    if (path === '/profile') return { portal: 'Employee', title: 'Account Profile' };
     if (path === '/manager/dashboard') return { portal: 'Manager', title: 'Dashboard Overview' };
     if (path === '/manager/employees') return { portal: 'Manager', title: 'Employee Directory' };
+    if (path === '/manager/calendar') return { portal: 'Manager', title: 'Leave Calendar' };
     if (path === '/manager/leave-requests') return { portal: 'Manager', title: 'Leave Requests' };
+    if (path === '/manager/profile') return { portal: 'Manager', title: 'Account Profile' };
     return { portal: role === 'manager' ? 'Manager' : 'Employee', title: 'Workspace' };
   };
 
@@ -223,16 +227,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <div className="py-1 space-y-1">
-                      <div
-                        className={`px-3 py-2 text-xs flex items-center space-x-2 rounded-lg border ${
+                      <Link
+                        to={role === 'manager' ? '/manager/profile' : '/profile'}
+                        onClick={() => setShowProfileMenu(false)}
+                        className={`px-3 py-2 text-xs flex items-center space-x-2 rounded-xl border transition-colors ${
                           isDark
-                            ? 'bg-[#201E1C] border-[#3F3B37] text-stone-300'
-                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                            ? 'bg-[#201E1C] hover:bg-[#33302C] border-[#3F3B37] text-stone-200'
+                            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800'
                         }`}
                       >
                         <UserIcon className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                        <span className="truncate font-mono">ID: #{user?.id}</span>
-                      </div>
+                        <span className="font-semibold">Manage Profile</span>
+                      </Link>
                     </div>
 
                     <button

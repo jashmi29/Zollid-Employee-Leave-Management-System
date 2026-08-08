@@ -5,12 +5,13 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useTheme } from '../../hooks/useTheme.js';
 import { useNotifications } from '../../hooks/useNotifications.js';
 import { leaveService } from '../../services/leaveService.js';
-import { LeaveRequest } from '../../types.js';
+import { LeaveRequest, LeaveBalance, CompanyHoliday, CompanyPolicy } from '../../types.js';
 import { LeaveStatusBadge } from '../../components/common/LeaveStatusBadge.js';
 import { CardSkeleton } from '../../components/common/SkeletonLoader.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
+import { Pagination } from '../../components/common/Pagination.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
 import {
   FilePlus2,
@@ -36,35 +37,48 @@ export const EmployeeDashboard: React.FC = () => {
   const { fetchUnreadNotifications } = useNotifications();
 
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  const [holidays, setHolidays] = useState<CompanyHoliday[]>([]);
+  const [policies, setPolicies] = useState<CompanyPolicy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
 
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Delete / Withdraw Leave State
   const [deletingLeaveId, setDeletingLeaveId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchLeaves = async () => {
+  const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      const data = await leaveService.getMyLeaves();
-      if (data.success) {
-        setLeaves(data.leaves);
-      }
+      const [leavesRes, balancesRes, holidaysRes, policiesRes] = await Promise.all([
+        leaveService.getMyLeaves(),
+        leaveService.getLeaveBalances(),
+        leaveService.getCompanyHolidays(),
+        leaveService.getCompanyPolicies()
+      ]);
+
+      if (leavesRes.success) setLeaves(leavesRes.leaves);
+      if (balancesRes.success) setBalances(balancesRes.balances);
+      if (holidaysRes.success) setHolidays(holidaysRes.holidays);
+      if (policiesRes.success) setPolicies(policiesRes.policies);
     } catch (error: any) {
-      console.error('Failed to load leave requests:', error);
-      toast.error(error?.response?.data?.message || 'Failed to load leave requests.');
+      console.error('Failed to load dashboard data:', error);
+      toast.error(error?.response?.data?.message || 'Failed to load dashboard data.');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLeaves();
+    fetchDashboardData();
   }, []);
+
 
   // Compute analytics
   const totalCount = leaves.length;
@@ -116,6 +130,11 @@ export const EmployeeDashboard: React.FC = () => {
       return matchesStatus && matchesSearch;
     });
   }, [leaves, statusFilter, searchQuery]);
+
+  const totalPages = Math.ceil(filteredLeaves.length / itemsPerPage) || 1;
+  const paginatedLeaves = useMemo(() => {
+    return filteredLeaves.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredLeaves, currentPage, itemsPerPage]);
 
   // Handle withdrawing a pending leave
   const handleConfirmDelete = async () => {
@@ -424,7 +443,10 @@ export const EmployeeDashboard: React.FC = () => {
               return (
                 <button
                   key={status}
-                  onClick={() => setStatusFilter(status)}
+                  onClick={() => {
+                    setStatusFilter(status);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition-all shrink-0 border ${
                     active
                       ? isDark
@@ -451,7 +473,10 @@ export const EmployeeDashboard: React.FC = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by reason or date"
               className={`w-full pl-9 pr-3 py-1.5 text-xs rounded-xl focus:outline-none border transition-colors ${
                 isDark
@@ -507,7 +532,7 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         ) : (
           <div className={`divide-y ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
-            {filteredLeaves.map((leave) => {
+            {paginatedLeaves.map((leave) => {
               const days = calculateDurationDays(leave.start_date, leave.end_date);
               const isPending = leave.status === 'Pending';
 
@@ -612,6 +637,161 @@ export const EmployeeDashboard: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={filteredLeaves.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(size) => setItemsPerPage(size)}
+        />
+      </div>
+
+      {/* Backend Leave Balances Section */}
+      {balances.length > 0 && (
+        <div
+          className={`border rounded-2xl p-6 shadow-xl space-y-4 ${
+            isDark ? 'bg-[#292623] border-[#3D3833]' : 'bg-[#FCFAF7] border-[#E8E2D8] shadow-sm'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Layers className="w-5 h-5 text-blue-500" />
+                <span>Backend Leave Quotas & Balances</span>
+              </h2>
+              <p className={`text-xs ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
+                Fetched directly from backend database table (`leave_balances` / `leave_types`)
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {balances.map((b, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-xl border transition-all ${
+                  isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#F7F3EB] border-[#E2DBD0]'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-sm">{b.leave_type}</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                    {b.remaining_days} Left
+                  </span>
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-stone-500">
+                    <span>Total Allocated:</span>
+                    <span className="font-semibold text-stone-300">{b.total_allowance} Days</span>
+                  </div>
+                  <div className="flex justify-between text-stone-500">
+                    <span>Used / Taken:</span>
+                    <span className="font-semibold text-emerald-500">{b.used_days} Days</span>
+                  </div>
+                  <div className="flex justify-between text-stone-500">
+                    <span>Pending Approval:</span>
+                    <span className="font-semibold text-amber-500">{b.pending_days} Days</span>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-stone-700/30 h-1.5 rounded-full mt-3 overflow-hidden">
+                  <div
+                    className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, Math.round(((b.total_allowance - b.remaining_days) / b.total_allowance) * 100))}%`
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Company Public Holidays & HR Policies Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Company Holidays Table */}
+        {holidays.length > 0 && (
+          <div
+            className={`border rounded-2xl p-6 shadow-xl space-y-4 ${
+              isDark ? 'bg-[#292623] border-[#3D3833]' : 'bg-[#FCFAF7] border-[#E8E2D8] shadow-sm'
+            }`}
+          >
+            <div className="space-y-1">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-indigo-500" />
+                <span>2026 Company Public Holidays</span>
+              </h2>
+              <p className={`text-xs ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
+                Fetched from `company_holidays` database table
+              </p>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {holidays.map((h) => (
+                <div
+                  key={h.id}
+                  className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                    isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#F7F3EB] border-[#E2DBD0]'
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-sm">{h.holiday_name}</p>
+                    <p className={isDark ? 'text-stone-400' : 'text-stone-600'}>{h.description}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="font-mono font-bold text-blue-500 block">{formatDate(h.holiday_date)}</span>
+                    <span className="text-[10px] text-stone-500">{h.day_of_week} • {h.type}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Company HR Policies */}
+        {policies.length > 0 && (
+          <div
+            className={`border rounded-2xl p-6 shadow-xl space-y-4 ${
+              isDark ? 'bg-[#292623] border-[#3D3833]' : 'bg-[#FCFAF7] border-[#E8E2D8] shadow-sm'
+            }`}
+          >
+            <div className="space-y-1">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-500" />
+                <span>Company Leave Policies</span>
+              </h2>
+              <p className={`text-xs ${isDark ? 'text-stone-400' : 'text-stone-600'}`}>
+                Fetched from `company_policies` database table
+              </p>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {policies.map((p) => (
+                <div
+                  key={p.id}
+                  className={`p-3 rounded-xl border text-xs space-y-1 ${
+                    isDark ? 'bg-[#22201D] border-[#3D3833]' : 'bg-[#F7F3EB] border-[#E2DBD0]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-amber-500">{p.title}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-semibold border border-amber-500/20">
+                      {p.category}
+                    </span>
+                  </div>
+                  <p className={`leading-relaxed text-xs ${isDark ? 'text-stone-300' : 'text-stone-700'}`}>
+                    {p.content}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -37,6 +37,52 @@ export interface LeaveRequestRecord {
   employee_email?: string;
 }
 
+export interface LeaveTypeRecord {
+  id: number;
+  code: string;
+  name: string;
+  max_days_per_year: number;
+  description: string;
+  requires_proof: boolean;
+  color_code: string;
+}
+
+export interface LeaveBalanceRecord {
+  id?: number;
+  employee_id: number;
+  leave_type: string;
+  total_allowance: number;
+  used_days: number;
+  pending_days: number;
+  remaining_days: number;
+}
+
+export interface CompanyHolidayRecord {
+  id: number;
+  holiday_name: string;
+  holiday_date: string;
+  day_of_week: string;
+  type: 'National' | 'Festival' | 'Company Holiday' | 'Restricted';
+  description: string;
+}
+
+export interface DepartmentRecord {
+  id: number;
+  code: string;
+  name: string;
+  manager_name: string;
+  total_employees: number;
+  description: string;
+}
+
+export interface CompanyPolicyRecord {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  effective_date: string;
+}
+
 function stringToNumericId(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -1401,3 +1447,305 @@ export async function resetEmployeePassword(
     message: 'Your password has been updated successfully. Please sign in with your new password.'
   };
 }
+
+export async function updateUserProfileInDb(
+  userId: number,
+  fullName: string,
+  username: string,
+  companyEmail: string
+): Promise<UserRecord> {
+  const trimmedFullName = fullName.trim();
+  const trimmedUsername = username.trim().toLowerCase();
+  const trimmedEmail = companyEmail.trim().toLowerCase();
+  const supabase = getSupabaseClient();
+
+  if (!trimmedFullName || !trimmedUsername || !trimmedEmail) {
+    throw new Error('Full Name, Username, and Company Email are required.');
+  }
+
+  // Check duplicate username for other users
+  const existingUsername = await findUserByUsername(trimmedUsername);
+  if (existingUsername && existingUsername.id !== userId) {
+    throw new Error(`Username '${trimmedUsername}' is already taken by another account.`);
+  }
+
+  // Check duplicate email for other users
+  const existingEmail = await findUserByEmail(trimmedEmail);
+  if (existingEmail && existingEmail.id !== userId) {
+    throw new Error(`Company email '${trimmedEmail}' is already registered to another account.`);
+  }
+
+  // 1. Update public.users table
+  try {
+    await supabase
+      .from('users')
+      .update({
+        full_name: trimmedFullName,
+        username: trimmedUsername,
+        company_email: trimmedEmail
+      })
+      .eq('id', userId);
+  } catch (err) {
+    console.warn('Note updating public.users for updateUserProfileInDb:', err);
+  }
+
+  // 2. Update Supabase Auth user_metadata if auth user exists
+  const currentUser = await findUserById(userId);
+  if (currentUser?.auth_user_id) {
+    try {
+      const { data: authData } = await supabase.auth.admin.getUserById(currentUser.auth_user_id);
+      if (authData?.user) {
+        await supabase.auth.admin.updateUserById(currentUser.auth_user_id, {
+          email: trimmedEmail,
+          user_metadata: {
+            ...authData.user.user_metadata,
+            full_name: trimmedFullName,
+            username: trimmedUsername,
+            company_email: trimmedEmail
+          }
+        });
+      }
+    } catch (authErr) {
+      console.warn('Note updating Supabase auth metadata:', authErr);
+    }
+  }
+
+  const updatedUser = await findUserById(userId);
+  if (!updatedUser) {
+    throw new Error('Failed to retrieve updated user profile.');
+  }
+
+  return updatedUser;
+}
+
+export async function changeUserPasswordInDb(
+  userId: number,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  const supabase = getSupabaseClient();
+
+  if (!currentPassword || !newPassword) {
+    throw new Error('Current Password and New Password are required.');
+  }
+
+  if (newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters long.');
+  }
+
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new Error('User account not found.');
+  }
+
+  // Find user password in DB or Auth
+  let savedPasswordHash = user.password;
+  if (!savedPasswordHash && user.auth_user_id) {
+    const { data: authData } = await supabase.auth.admin.getUserById(user.auth_user_id);
+    if (authData?.user) {
+      savedPasswordHash = authData.user.user_metadata?.password_hash || authData.user.user_metadata?.password;
+    }
+  }
+
+  // Verify current password if available
+  if (savedPasswordHash) {
+    const isMatch = bcrypt.compareSync(currentPassword, savedPasswordHash);
+    if (!isMatch) {
+      throw new Error('Current password is incorrect. Please try again.');
+    }
+  }
+
+  const newHashedPassword = bcrypt.hashSync(newPassword, 10);
+
+  // Update in public.users if column exists
+  try {
+    await supabase
+      .from('users')
+      .update({ password: newHashedPassword })
+      .eq('id', userId);
+  } catch (err) {
+    // Ignore if column is absent
+  }
+
+  // Update in Supabase Auth user_metadata and password
+  if (user.auth_user_id) {
+    const { data: authData } = await supabase.auth.admin.getUserById(user.auth_user_id);
+    const meta = authData?.user?.user_metadata || {};
+    await supabase.auth.admin.updateUserById(user.auth_user_id, {
+      password: newPassword,
+      user_metadata: {
+        ...meta,
+        password_hash: newHashedPassword,
+        password: newHashedPassword
+      }
+    });
+  }
+
+  return {
+    success: true,
+    message: 'Password updated successfully.'
+  };
+}
+
+// ==========================================
+// NEW TABLES SEEDERS AND GETTER FUNCTIONS
+// ==========================================
+
+const DEFAULT_LEAVE_TYPES: LeaveTypeRecord[] = [
+  { id: 1, code: 'Annual', name: 'Annual Leave', max_days_per_year: 20, description: 'Paid time off for vacation or personal rest', requires_proof: false, color_code: '#3B82F6' },
+  { id: 2, code: 'Sick', name: 'Sick Leave', max_days_per_year: 12, description: 'Medical treatment, illness, or doctor appointments', requires_proof: true, color_code: '#EF4444' },
+  { id: 3, code: 'Casual', name: 'Casual Leave', max_days_per_year: 10, description: 'Short-notice personal tasks or family matters', requires_proof: false, color_code: '#F59E0B' },
+  { id: 4, code: 'Emergency', name: 'Emergency Leave', max_days_per_year: 5, description: 'Unforeseen urgent events or family emergencies', requires_proof: true, color_code: '#8B5CF6' },
+  { id: 5, code: 'Maternity', name: 'Maternity / Paternity Leave', max_days_per_year: 180, description: 'Parental leave for childbirth or adoption support', requires_proof: true, color_code: '#EC4899' },
+  { id: 6, code: 'Unpaid', name: 'Loss of Pay (LOP)', max_days_per_year: 30, description: 'Unpaid extended leave approved beyond standard quota', requires_proof: false, color_code: '#6B7280' }
+];
+
+const DEFAULT_COMPANY_HOLIDAYS: CompanyHolidayRecord[] = [
+  { id: 1, holiday_name: "New Year's Day", holiday_date: '2026-01-01', day_of_week: 'Thursday', type: 'National', description: 'Global New Year Celebration' },
+  { id: 2, holiday_name: 'Republic Day', holiday_date: '2026-01-26', day_of_week: 'Monday', type: 'National', description: 'National Republic Day Holiday' },
+  { id: 3, holiday_name: 'Good Friday', holiday_date: '2026-04-03', day_of_week: 'Friday', type: 'Festival', description: 'Good Friday Observance' },
+  { id: 4, holiday_name: 'May Day / Labour Day', holiday_date: '2026-05-01', day_of_week: 'Friday', type: 'Company Holiday', description: 'International Workers Day' },
+  { id: 5, holiday_name: 'Independence Day', holiday_date: '2026-08-15', day_of_week: 'Saturday', type: 'National', description: 'National Independence Day' },
+  { id: 6, holiday_name: 'Gandhi Jayanti', holiday_date: '2026-10-02', day_of_week: 'Friday', type: 'National', description: 'Mahatma Gandhi Birth Anniversary' },
+  { id: 7, holiday_name: 'Diwali / Deepavali', holiday_date: '2026-11-08', day_of_week: 'Sunday', type: 'Festival', description: 'Festival of Lights' },
+  { id: 8, holiday_name: 'Christmas Day', holiday_date: '2026-12-25', day_of_week: 'Friday', type: 'Festival', description: 'Christmas Celebration' }
+];
+
+const DEFAULT_DEPARTMENTS: DepartmentRecord[] = [
+  { id: 1, code: 'ENG', name: 'Software Engineering', manager_name: 'ZOLLID Manager', total_employees: 18, description: 'Core product engineering and technology infrastructure' },
+  { id: 2, code: 'HR', name: 'Human Resources', manager_name: 'GCU Manager', total_employees: 6, description: 'Talent acquisition, employee welfare, and leave management' },
+  { id: 3, code: 'PD', name: 'Product & Design', manager_name: 'ZOLLID Manager', total_employees: 8, description: 'User experience, product strategy, and visual design' },
+  { id: 4, code: 'SM', name: 'Sales & Marketing', manager_name: 'GCU Manager', total_employees: 12, description: 'Business development, client relationships, and marketing' },
+  { id: 5, code: 'FO', name: 'Finance & Operations', manager_name: 'ZOLLID Manager', total_employees: 5, description: 'Payroll, financial planning, and enterprise ops' }
+];
+
+const DEFAULT_POLICIES: CompanyPolicyRecord[] = [
+  { id: 1, title: 'Annual Leave Quota & Application Window', category: 'Leave Quota', content: 'Employees receive 20 days of paid annual leave per calendar year. Leave applications exceeding 3 consecutive days must be submitted at least 5 business days in advance.', effective_date: '2026-01-01' },
+  { id: 2, title: 'Sick Leave & Medical Certificate Requirements', category: 'Sick Leave', content: 'Medical certificates issued by a certified healthcare professional are mandatory for sick leave applications extending beyond 2 consecutive days.', effective_date: '2026-01-01' },
+  { id: 3, title: 'Year-End Carry Forward Policy', category: 'Carry Forward', content: 'Up to 5 unused annual leave days can be carried forward into the next calendar year. Carried forward leave must be utilized by Q1.', effective_date: '2026-01-01' },
+  { id: 4, title: 'Notice Period for Emergency Leave', category: 'Emergency Leave', content: 'In emergency situations, leave must be reported to line manager or submitted via the portal within 24 hours of absence start date.', effective_date: '2026-01-01' }
+];
+
+export async function getLeaveTypesFromDb(): Promise<LeaveTypeRecord[]> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.from('leave_types').select('*').order('id', { ascending: true });
+    if (!error && data && data.length > 0) {
+      return data as LeaveTypeRecord[];
+    }
+    if (!error && data && data.length === 0) {
+      // Auto-seed into Supabase
+      await supabase.from('leave_types').upsert(DEFAULT_LEAVE_TYPES, { onConflict: 'code' });
+      const { data: seededData } = await supabase.from('leave_types').select('*').order('id', { ascending: true });
+      if (seededData && seededData.length > 0) {
+        return seededData as LeaveTypeRecord[];
+      }
+    }
+  } catch (err) {
+    console.warn('Note on fetching leave_types table:', err);
+  }
+  return DEFAULT_LEAVE_TYPES;
+}
+
+export async function getCompanyHolidaysFromDb(): Promise<CompanyHolidayRecord[]> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.from('company_holidays').select('*').order('holiday_date', { ascending: true });
+    if (!error && data && data.length > 0) {
+      return data as CompanyHolidayRecord[];
+    }
+    if (!error && data && data.length === 0) {
+      // Auto-seed into Supabase
+      await supabase.from('company_holidays').upsert(DEFAULT_COMPANY_HOLIDAYS, { onConflict: 'id' });
+      const { data: seededData } = await supabase.from('company_holidays').select('*').order('holiday_date', { ascending: true });
+      if (seededData && seededData.length > 0) {
+        return seededData as CompanyHolidayRecord[];
+      }
+    }
+  } catch (err) {
+    console.warn('Note on fetching company_holidays table:', err);
+  }
+  return DEFAULT_COMPANY_HOLIDAYS;
+}
+
+export async function getDepartmentsFromDb(): Promise<DepartmentRecord[]> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.from('departments').select('*').order('id', { ascending: true });
+    if (!error && data && data.length > 0) {
+      return data as DepartmentRecord[];
+    }
+    if (!error && data && data.length === 0) {
+      // Auto-seed into Supabase
+      await supabase.from('departments').upsert(DEFAULT_DEPARTMENTS, { onConflict: 'code' });
+      const { data: seededData } = await supabase.from('departments').select('*').order('id', { ascending: true });
+      if (seededData && seededData.length > 0) {
+        return seededData as DepartmentRecord[];
+      }
+    }
+  } catch (err) {
+    console.warn('Note on fetching departments table:', err);
+  }
+  return DEFAULT_DEPARTMENTS;
+}
+
+export async function getCompanyPoliciesFromDb(): Promise<CompanyPolicyRecord[]> {
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.from('company_policies').select('*').order('id', { ascending: true });
+    if (!error && data && data.length > 0) {
+      return data as CompanyPolicyRecord[];
+    }
+    if (!error && data && data.length === 0) {
+      // Auto-seed into Supabase
+      await supabase.from('company_policies').upsert(DEFAULT_POLICIES, { onConflict: 'id' });
+      const { data: seededData } = await supabase.from('company_policies').select('*').order('id', { ascending: true });
+      if (seededData && seededData.length > 0) {
+        return seededData as CompanyPolicyRecord[];
+      }
+    }
+  } catch (err) {
+    console.warn('Note on fetching company_policies table:', err);
+  }
+  return DEFAULT_POLICIES;
+}
+
+export async function getLeaveBalancesFromDb(userId: number): Promise<LeaveBalanceRecord[]> {
+  // Fetch user's actual leaves from DB to calculate real balances dynamically
+  const userLeaves = await getLeavesByEmployeeId(userId);
+  const leaveTypes = await getLeaveTypesFromDb();
+
+  const balances: LeaveBalanceRecord[] = leaveTypes.map((lt) => {
+    const typeLeaves = userLeaves.filter(l => (l.leave_type || 'Annual').toLowerCase() === lt.code.toLowerCase() || (l.leave_type || '').toLowerCase().includes(lt.code.toLowerCase()));
+
+    let usedDays = 0;
+    let pendingDays = 0;
+
+    typeLeaves.forEach((l) => {
+      const s = l.approved_start_date || l.start_date;
+      const e = l.approved_end_date || l.end_date;
+      const d = l.duration || 1;
+
+      if (l.status === 'Approved' || l.status === 'Partially Approved') {
+        usedDays += d;
+      } else if (l.status === 'Pending') {
+        pendingDays += d;
+      }
+    });
+
+    const remainingDays = Math.max(0, lt.max_days_per_year - usedDays);
+
+    return {
+      employee_id: userId,
+      leave_type: lt.name,
+      total_allowance: lt.max_days_per_year,
+      used_days: usedDays,
+      pending_days: pendingDays,
+      remaining_days: remainingDays
+    };
+  });
+
+  return balances;
+}
+
+

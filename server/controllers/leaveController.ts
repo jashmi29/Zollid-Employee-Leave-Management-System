@@ -7,7 +7,11 @@ import {
   updateLeaveStatus as dbUpdateLeaveStatus,
   getUnreadNotifications as dbGetUnreadNotifications,
   markNotificationsRead as dbMarkNotificationsRead,
-  deleteLeaveRequest
+  deleteLeaveRequest,
+  getLeaveTypesFromDb,
+  getLeaveBalancesFromDb,
+  getCompanyHolidaysFromDb,
+  getCompanyPoliciesFromDb
 } from '../config/db.js';
 import { uploadAttachmentToSupabase } from '../config/storage.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
@@ -224,3 +228,61 @@ export const deleteLeave = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getLeaveTypes = async (_req: AuthRequest, res: Response) => {
+  try {
+    const leaveTypes = await getLeaveTypesFromDb();
+    return res.json({
+      success: true,
+      leaveTypes
+    });
+  } catch (error: any) {
+    console.error('Get leave types error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getLeaveBalances = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated.' });
+    }
+
+    const balances = await getLeaveBalancesFromDb(userId);
+    return res.json({
+      success: true,
+      balances
+    });
+  } catch (error: any) {
+    console.error('Get leave balances error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getCompanyHolidays = async (_req: AuthRequest, res: Response) => {
+  try {
+    const holidays = await getCompanyHolidaysFromDb();
+    return res.json({
+      success: true,
+      holidays
+    });
+  } catch (error: any) {
+    console.error('Get company holidays error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getCompanyPolicies = async (_req: AuthRequest, res: Response) => {
+  try {
+    const policies = await getCompanyPoliciesFromDb();
+    return res.json({
+      success: true,
+      policies
+    });
+  } catch (error: any) {
+    console.error('Get company policies error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+

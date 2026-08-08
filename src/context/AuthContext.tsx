@@ -12,6 +12,8 @@ interface AuthContextType {
   register: (fullName: string, username: string, companyEmail: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateProfile: (fullName: string, username: string, companyEmail: string) => Promise<{ success: boolean; message?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -104,6 +106,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateProfile = async (fullName: string, username: string, companyEmail: string) => {
+    try {
+      const data = await authService.updateProfile(fullName, username, companyEmail);
+      if (data.success && data.user) {
+        setUser(data.user);
+        localStorage.setItem('leave_app_user', JSON.stringify(data.user));
+        if (data.token) {
+          setToken(data.token);
+          localStorage.setItem('leave_app_token', data.token);
+        }
+        return { success: true, message: data.message || 'Profile updated successfully.' };
+      }
+      return { success: false, message: data.message || 'Failed to update profile.' };
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Failed to update profile details.';
+      return { success: false, message: msg };
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const data = await authService.changePassword(currentPassword, newPassword);
+      return data;
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Failed to change password.';
+      return { success: false, message: msg };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -115,7 +146,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         register,
         logout,
-        refreshUser
+        refreshUser,
+        updateProfile,
+        changePassword
       }}
     >
       {children}

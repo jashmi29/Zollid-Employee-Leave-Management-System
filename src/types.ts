@@ -48,3 +48,50 @@ export interface LeaveStats {
   rejected: number;
   totalDaysTaken: number;
 }
+
+export interface LeaveType {
+  id: number;
+  code: string;
+  name: string;
+  max_days_per_year: number;
+  description: string;
+  requires_proof: boolean;
+  color_code: string;
+}
+
+export interface LeaveBalance {
+  id?: number;
+  employee_id: number;
+  leave_type: string;
+  total_allowance: number;
+  used_days: number;
+  pending_days: number;
+  remaining_days: number;
+}
+
+export interface CompanyHoliday {
+  id: number;
+  holiday_name: string;
+  holiday_date: string;
+  day_of_week: string;
+  type: 'National' | 'Festival' | 'Company Holiday' | 'Restricted';
+  description: string;
+}
+
+export interface Department {
+  id: number;
+  code: string;
+  name: string;
+  manager_name: string;
+  total_employees: number;
+  description: string;
+}
+
+export interface CompanyPolicy {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  effective_date: string;
+}
+

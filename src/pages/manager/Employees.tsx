@@ -5,6 +5,7 @@ import { User, LeaveRequest } from '../../types.js';
 import { TableSkeleton } from '../../components/common/SkeletonLoader.js';
 import { EmptyState } from '../../components/common/EmptyState.js';
 import { Modal } from '../../components/common/Modal.js';
+import { Pagination } from '../../components/common/Pagination.js';
 import { LeaveStatusBadge } from '../../components/common/LeaveStatusBadge.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
@@ -30,6 +31,8 @@ export const EmployeesPage: React.FC = () => {
   const [employees, setEmployees] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Selected Employee Modal State
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
@@ -38,12 +41,10 @@ export const EmployeesPage: React.FC = () => {
   const fetchEmployees = async () => {
     try {
       setIsLoading(true);
-      const res = await employeeService.getAllEmployees({ search: searchQuery });
-      if (res.success) {
-        setEmployees(res.employees);
-      }
+      const empRes = await employeeService.getAllEmployees({ search: searchQuery });
+      if (empRes.success) setEmployees(empRes.employees);
     } catch (err) {
-      console.error('Failed to load employees:', err);
+      console.error('Failed to load employee data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -55,6 +56,17 @@ export const EmployeesPage: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const totalPages = Math.ceil(employees.length / itemsPerPage) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedEmployees = employees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
 
   const parseLeaveDetails = (reasonStr: string) => {
     if (!reasonStr) return { type: 'Annual', reason: '' };
@@ -99,7 +111,10 @@ export const EmployeesPage: React.FC = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search by name, username, or email"
             className={`w-full border rounded-xl pl-9 pr-3.5 py-2.5 text-xs focus:outline-none transition-colors ${
               isDark
@@ -150,7 +165,7 @@ export const EmployeesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className={`divide-y text-xs ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
-                {employees.map((emp) => {
+                {paginatedEmployees.map((emp) => {
                   const cleanUsername = emp.username?.includes('@') ? emp.username.split('@')[0] : (emp.username || 'user');
                   const displayName = emp.fullName && !emp.fullName.includes('@')
                     ? emp.fullName
@@ -233,6 +248,15 @@ export const EmployeesPage: React.FC = () => {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={employees.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(size) => setItemsPerPage(size)}
+        />
       </div>
 
       {/* Employee Details Modal */}

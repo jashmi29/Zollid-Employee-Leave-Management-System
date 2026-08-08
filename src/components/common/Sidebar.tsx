@@ -14,7 +14,8 @@ import {
   X,
   Shield,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  User
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -52,14 +53,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Apply Leave', path: '/apply-leave', icon: FilePlus2 },
     { name: 'Leave History', path: '/leave-history', icon: History },
-    { name: 'Leave Calendar', path: '/calendar', icon: Calendar }
+    { name: 'Leave Calendar', path: '/calendar', icon: Calendar },
+    { name: 'Profile', path: '/profile', icon: User }
   ];
 
   const managerLinks = [
     { name: 'Dashboard', path: '/manager/dashboard', icon: LayoutDashboard },
     { name: 'Employee Directory', path: '/manager/employees', icon: Users },
     { name: 'Leave Calendar', path: '/manager/calendar', icon: Calendar },
-    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList }
+    { name: 'Leave Requests', path: '/manager/leave-requests', icon: ClipboardList },
+    { name: 'Profile', path: '/manager/profile', icon: User }
   ];
 
   const links = role === 'manager' ? managerLinks : employeeLinks;

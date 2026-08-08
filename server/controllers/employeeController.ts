@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { getAllEmployeesWithStats } from '../config/db.js';
+import { getAllEmployeesWithStats, getDepartmentsFromDb } from '../config/db.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 
 export const getAllEmployees = async (req: AuthRequest, res: Response) => {
@@ -17,3 +17,17 @@ export const getAllEmployees = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getDepartments = async (_req: AuthRequest, res: Response) => {
+  try {
+    const departments = await getDepartmentsFromDb();
+    return res.json({
+      success: true,
+      departments
+    });
+  } catch (error: any) {
+    console.error('Get departments error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+

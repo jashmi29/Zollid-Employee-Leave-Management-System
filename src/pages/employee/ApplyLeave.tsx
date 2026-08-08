@@ -5,7 +5,7 @@ import { CustomDatePicker } from '../../components/common/CustomDatePicker.js';
 import { leaveService } from '../../services/leaveService.js';
 import { validateLeaveDates, validateFile, checkLeaveOverlap } from '../../utils/validators.js';
 import { calculateDurationDays, formatDate } from '../../utils/formatters.js';
-import { LeaveRequest } from '../../types.js';
+import { LeaveRequest, LeaveType } from '../../types.js';
 import {
   FilePlus2,
   Calendar,
@@ -23,21 +23,23 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const LEAVE_TYPES = [
+const DEFAULT_FALLBACK_LEAVE_TYPES = [
   { value: 'Annual', label: 'Annual Leave', description: 'Paid time off for vacation or personal rest' },
   { value: 'Sick', label: 'Sick Leave', description: 'Medical treatment, illness, or doctor appointments' },
   { value: 'Casual', label: 'Casual Leave', description: 'Short-notice personal tasks or family matters' },
   { value: 'Emergency', label: 'Emergency Leave', description: 'Unforeseen urgent events or family emergencies' },
-  { value: 'Other', label: 'Other', description: 'Special circumstances, training, or jury duty' }
-] as const;
+  { value: 'Maternity', label: 'Maternity / Paternity Leave', description: 'Parental leave for childbirth or adoption support' },
+  { value: 'Unpaid', label: 'Loss of Pay (LOP)', description: 'Unpaid extended leave approved beyond standard quota' }
+];
 
 export const ApplyLeave: React.FC = () => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Existing user leaves for overlap checking
+  // Existing user leaves for overlap checking & backend leave types
   const [existingLeaves, setExistingLeaves] = useState<LeaveRequest[]>([]);
+  const [dbLeaveTypes, setDbLeaveTypes] = useState<LeaveType[]>([]);
 
   // Form State
   const [leaveType, setLeaveType] = useState<string>('Annual');
@@ -53,22 +55,36 @@ export const ApplyLeave: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedLeave, setSubmittedLeave] = useState<LeaveRequest | null>(null);
 
-  // Fetch existing leaves on mount
+  // Fetch existing leaves & leave types from backend on mount
   useEffect(() => {
-    const loadLeaves = async () => {
+    const loadData = async () => {
       try {
-        const res = await leaveService.getMyLeaves();
-        if (res.success) {
-          setExistingLeaves(res.leaves);
+        const [resLeaves, resTypes] = await Promise.all([
+          leaveService.getMyLeaves(),
+          leaveService.getLeaveTypes()
+        ]);
+        if (resLeaves.success) {
+          setExistingLeaves(resLeaves.leaves);
+        }
+        if (resTypes.success && resTypes.leaveTypes?.length > 0) {
+          setDbLeaveTypes(resTypes.leaveTypes);
         }
       } catch (err) {
-        console.error('Failed to load existing leaves for validation:', err);
+        console.error('Failed to load leave data for validation:', err);
       }
     };
-    loadLeaves();
+    loadData();
   }, []);
 
+  const LEAVE_TYPES = dbLeaveTypes.length > 0
+    ? dbLeaveTypes.map(lt => ({ value: lt.code, label: lt.name, description: lt.description }))
+    : DEFAULT_FALLBACK_LEAVE_TYPES;
+
+
   // Derived values & validations
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
   const durationDays = calculateDurationDays(startDate, endDate);
 
   // Date range error
@@ -401,6 +417,7 @@ export const ApplyLeave: React.FC = () => {
                   value={startDate}
                   onChange={(dateStr) => setStartDate(dateStr)}
                   placeholder="Select start date"
+                  minDate={todayStr}
                   hasError={!!(dateRangeError || overlapError)}
                   align="left"
                 />
@@ -414,7 +431,7 @@ export const ApplyLeave: React.FC = () => {
                   value={endDate}
                   onChange={(dateStr) => setEndDate(dateStr)}
                   placeholder="Select end date"
-                  minDate={startDate || undefined}
+                  minDate={startDate || todayStr}
                   hasError={!!(dateRangeError || overlapError)}
                   align="right"
                 />

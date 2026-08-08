@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/common/EmptyState.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 import { Modal } from '../../components/common/Modal.js';
+import { Pagination } from '../../components/common/Pagination.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
 import {
   History,
@@ -32,6 +33,8 @@ export const LeaveHistory: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
   const [viewingLeave, setViewingLeave] = useState<LeaveRequest | null>(null);
@@ -102,6 +105,16 @@ export const LeaveHistory: React.FC = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const totalPages = Math.ceil(filteredLeaves.length / itemsPerPage) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedLeaves = filteredLeaves.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -140,7 +153,10 @@ export const LeaveHistory: React.FC = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by reason, type, or date"
               className={`w-full border rounded-xl pl-9 pr-3.5 py-2 text-xs focus:outline-none transition-colors ${
                 isDark
@@ -159,7 +175,10 @@ export const LeaveHistory: React.FC = () => {
             {(['All', 'Pending', 'Approved', 'Partially Approved', 'Rejected'] as const).map((st) => (
               <button
                 key={st}
-                onClick={() => setStatusFilter(st)}
+                onClick={() => {
+                  setStatusFilter(st);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-blue-600 text-white shadow-sm'
@@ -228,7 +247,7 @@ export const LeaveHistory: React.FC = () => {
                 </tr>
               </thead>
               <tbody className={`divide-y text-xs ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
-                {filteredLeaves.map((leave) => {
+                {paginatedLeaves.map((leave) => {
                   const requestedDays = calculateDurationDays(leave.start_date, leave.end_date);
                   const approvedStart = leave.approved_start_date || leave.start_date;
                   const approvedEnd = leave.approved_end_date || leave.end_date;
@@ -376,6 +395,15 @@ export const LeaveHistory: React.FC = () => {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={filteredLeaves.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(size) => setItemsPerPage(size)}
+        />
       </div>
 
       {/* Document Viewer Modal */}

@@ -10,6 +10,7 @@ import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { ReviewRequestModal } from '../../components/common/ReviewRequestModal.js';
 import { Modal } from '../../components/common/Modal.js';
+import { Pagination } from '../../components/common/Pagination.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
 import {
   ClipboardList,
@@ -37,6 +38,8 @@ export const ManagerLeaveRequests: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Review Modal state
   const [reviewRequest, setReviewRequest] = useState<LeaveRequest | null>(null);
@@ -68,6 +71,16 @@ export const ManagerLeaveRequests: React.FC = () => {
     }, 250);
     return () => clearTimeout(timer);
   }, [statusFilter, searchQuery]);
+
+  const totalPages = Math.ceil(leaves.length / itemsPerPage) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedLeaves = leaves.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const parseLeaveDetails = (reasonStr: string) => {
     if (!reasonStr) return { type: 'Annual', reason: '' };
@@ -142,7 +155,10 @@ export const ManagerLeaveRequests: React.FC = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by name, username, or reason"
               className={`w-full border rounded-xl pl-9 pr-3.5 py-2 text-xs focus:outline-none transition-colors ${
                 isDark
@@ -161,7 +177,10 @@ export const ManagerLeaveRequests: React.FC = () => {
             {(['All', 'Pending', 'Approved', 'Partially Approved', 'Rejected'] as const).map((st) => (
               <button
                 key={st}
-                onClick={() => setStatusFilter(st)}
+                onClick={() => {
+                  setStatusFilter(st);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-blue-600 text-white shadow-sm'
@@ -214,7 +233,7 @@ export const ManagerLeaveRequests: React.FC = () => {
                 </tr>
               </thead>
               <tbody className={`divide-y text-xs ${isDark ? 'divide-[#3D3833]' : 'divide-[#E8E2D8]'}`}>
-                {leaves.map((leave) => {
+                {paginatedLeaves.map((leave) => {
                   const requestedDays = calculateDurationDays(leave.start_date, leave.end_date);
                   const approvedStart = leave.approved_start_date || leave.start_date;
                   const approvedEnd = leave.approved_end_date || leave.end_date;
@@ -369,6 +388,15 @@ export const ManagerLeaveRequests: React.FC = () => {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={leaves.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(size) => setItemsPerPage(size)}
+        />
       </div>
 
       {/* View Request Details Modal */}

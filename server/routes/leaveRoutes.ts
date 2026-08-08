@@ -6,12 +6,22 @@ import {
   updateLeaveStatus,
   getUnreadNotifications,
   markNotificationsRead,
-  deleteLeave
+  deleteLeave,
+  getLeaveTypes,
+  getLeaveBalances,
+  getCompanyHolidays,
+  getCompanyPolicies
 } from '../controllers/leaveController.js';
 import { authenticateJWT, requireRole } from '../middleware/authMiddleware.js';
 import { uploadDocument } from '../middleware/uploadMiddleware.js';
 
 const router = Router();
+
+// Shared public metadata routes (authenticated)
+router.get('/types', authenticateJWT, getLeaveTypes);
+router.get('/balances', authenticateJWT, getLeaveBalances);
+router.get('/holidays', authenticateJWT, getCompanyHolidays);
+router.get('/policies', authenticateJWT, getCompanyPolicies);
 
 // Employee routes
 router.post('/', authenticateJWT, requireRole('employee'), uploadDocument.single('document'), applyLeave);
@@ -27,3 +37,4 @@ router.put('/:id/status', authenticateJWT, requireRole('manager'), updateLeaveSt
 router.delete('/:id', authenticateJWT, deleteLeave);
 
 export default router;
+

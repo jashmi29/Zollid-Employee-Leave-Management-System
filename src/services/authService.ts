@@ -30,5 +30,22 @@ export const authService = {
       confirmPassword
     });
     return response.data;
+  },
+
+  async updateProfile(fullName: string, username: string, companyEmail: string): Promise<AuthResponse> {
+    const response = await api.put<AuthResponse>('/auth/profile', {
+      fullName,
+      username,
+      companyEmail
+    });
+    return response.data;
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.put<{ success: boolean; message: string }>('/auth/change-password', {
+      currentPassword,
+      newPassword
+    });
+    return response.data;
   }
 };

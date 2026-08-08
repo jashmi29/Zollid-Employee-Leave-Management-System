@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { findUserByUsername, findUserByEmail, findUserByEmailOrUsername, createUser, findUserById, verifyEmployeeAccount, resetEmployeePassword } from '../config/db.js';
+import { findUserByUsername, findUserByEmail, findUserByEmailOrUsername, createUser, findUserById, verifyEmployeeAccount, resetEmployeePassword, updateUserProfileInDb, changeUserPasswordInDb } from '../config/db.js';
 import { generateToken, AuthRequest } from '../middleware/authMiddleware.js';
 
 export const register = async (req: Request, res: Response) => {
@@ -241,6 +241,59 @@ export const resetPassword = async (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       message: error.message || 'The provided information does not match any employee account.'
+    });
+  }
+};
+
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated.' });
+    }
+
+    const { fullName, username, companyEmail } = req.body;
+    const updatedRecord = await updateUserProfileInDb(req.user.id, fullName, username, companyEmail);
+
+    const updatedAuthUser = {
+      id: updatedRecord.id,
+      username: updatedRecord.username,
+      fullName: updatedRecord.fullName,
+      companyEmail: updatedRecord.companyEmail,
+      role: updatedRecord.role
+    };
+
+    const token = generateToken(updatedAuthUser);
+
+    return res.json({
+      success: true,
+      message: 'Profile details updated successfully.',
+      token,
+      user: updatedAuthUser
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to update profile details.'
+    });
+  }
+};
+
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated.' });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const result = await changeUserPasswordInDb(req.user.id, currentPassword, newPassword);
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to change password.'
     });
   }
 };

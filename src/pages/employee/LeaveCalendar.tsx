@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { leaveService } from '../../services/leaveService.js';
-import { LeaveRequest } from '../../types.js';
+import { LeaveRequest, CompanyHoliday } from '../../types.js';
 import { Modal } from '../../components/common/Modal.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { LeaveStatusBadge } from '../../components/common/LeaveStatusBadge.js';
@@ -50,6 +50,7 @@ export const LeaveCalendar: React.FC = () => {
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [dbHolidays, setDbHolidays] = useState<CompanyHoliday[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Active Filter Chip: 'All' | 'Company Holidays' | 'Optional Holidays' | 'My Leaves' | 'Approved' | 'Partially Approved' | 'Pending' | 'Rejected'
@@ -61,21 +62,18 @@ export const LeaveCalendar: React.FC = () => {
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
 
-  // Fetch Leaves
+  // Fetch Leaves and Company Holidays
   useEffect(() => {
-    const fetchLeaves = async () => {
+    const fetchCalendarData = async () => {
       try {
         setIsLoading(true);
-        let res;
-        if (role === 'manager') {
-          res = await leaveService.getAllLeaves();
-        } else {
-          res = await leaveService.getMyLeaves();
-        }
+        const [leavesRes, holidaysRes] = await Promise.all([
+          role === 'manager' ? leaveService.getAllLeaves() : leaveService.getMyLeaves(),
+          leaveService.getCompanyHolidays()
+        ]);
 
-        if (res.success) {
-          setLeaves(res.leaves);
-        }
+        if (leavesRes.success) setLeaves(leavesRes.leaves);
+        if (holidaysRes.success) setDbHolidays(holidaysRes.holidays);
       } catch (err) {
         console.error('Failed to load leave calendar data:', err);
         toast.error('Failed to load calendar data.');
@@ -84,8 +82,9 @@ export const LeaveCalendar: React.FC = () => {
       }
     };
 
-    fetchLeaves();
+    fetchCalendarData();
   }, [role]);
+
 
   // Calendar Month Navigation
   const prevMonth = () => {
@@ -113,8 +112,26 @@ export const LeaveCalendar: React.FC = () => {
     return { type: 'Annual', reason: reasonStr };
   };
 
-  // Generate Predefined Holidays for current year
+  // Generate Predefined Holidays for current year from backend DB
   const getHolidaysForYear = (y: number): CalendarEvent[] => {
+    if (dbHolidays.length > 0) {
+      return dbHolidays.map((h) => {
+        const isOptional = h.type?.toLowerCase().includes('optional') || h.type?.toLowerCase().includes('restricted');
+        const cat: 'Company Holiday' | 'Optional Holiday' = isOptional ? 'Optional Holiday' : 'Company Holiday';
+        return {
+          id: `db-hol-${h.id}-${h.holiday_date}`,
+          title: h.holiday_name,
+          category: cat,
+          dateStr: h.holiday_date,
+          startDate: h.holiday_date,
+          endDate: h.holiday_date,
+          type: cat,
+          status: cat,
+          leaveReason: h.description || 'Company Holiday'
+        };
+      });
+    }
+
     const pad = (n: number) => String(n).padStart(2, '0');
 
     const companyHolidays: { month: number; day: number; title: string }[] = [
@@ -172,6 +189,7 @@ export const LeaveCalendar: React.FC = () => {
 
     return events;
   };
+
 
   // Convert Leave Requests to Calendar Events across date ranges
   const leaveEvents = useMemo(() => {

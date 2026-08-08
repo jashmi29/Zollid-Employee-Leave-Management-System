@@ -12,6 +12,7 @@ import { ConfirmModal } from '../../components/common/ConfirmModal.js';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal.js';
 import { ReviewRequestModal } from '../../components/common/ReviewRequestModal.js';
 import { Modal } from '../../components/common/Modal.js';
+import { Pagination } from '../../components/common/Pagination.js';
 import { formatDate, calculateDurationDays } from '../../utils/formatters.js';
 import {
   ResponsiveContainer,
@@ -74,6 +75,8 @@ export const ManagerDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [leaveCategoryFilter, setLeaveCategoryFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'pending' | 'all'>('pending');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
 
   // Modal Actions
   const [actionLeave, setActionLeave] = useState<LeaveRequest | null>(null);
@@ -314,6 +317,11 @@ export const ManagerDashboard: React.FC = () => {
 
     return list;
   }, [pendingLeaves, leaves, viewMode, leaveCategoryFilter, searchQuery]);
+
+  const totalPages = Math.ceil(filteredReviewRequests.length / itemsPerPage) || 1;
+  const paginatedReviewRequests = useMemo(() => {
+    return filteredReviewRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredReviewRequests, currentPage, itemsPerPage]);
 
   // Quick Action Handler
   const handleQuickAction = async (remarks?: string) => {
@@ -993,7 +1001,10 @@ export const ManagerDashboard: React.FC = () => {
             >
               <button
                 type="button"
-                onClick={() => setViewMode('pending')}
+                onClick={() => {
+                  setViewMode('pending');
+                  setCurrentPage(1);
+                }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   viewMode === 'pending'
                     ? 'bg-amber-500 text-white shadow-md'
@@ -1006,7 +1017,10 @@ export const ManagerDashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('all')}
+                onClick={() => {
+                  setViewMode('all');
+                  setCurrentPage(1);
+                }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   viewMode === 'all'
                     ? 'bg-blue-600 text-white shadow-md'
@@ -1029,7 +1043,10 @@ export const ManagerDashboard: React.FC = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by employee name, email or leave reason..."
               className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                 isDark
@@ -1052,7 +1069,10 @@ export const ManagerDashboard: React.FC = () => {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setLeaveCategoryFilter(tab.id)}
+                onClick={() => {
+                  setLeaveCategoryFilter(tab.id);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
                   leaveCategoryFilter === tab.id
                     ? 'bg-blue-600 text-white border-blue-500 shadow-md'
@@ -1079,7 +1099,7 @@ export const ManagerDashboard: React.FC = () => {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredReviewRequests.map((leave) => {
+            {paginatedReviewRequests.map((leave) => {
               const { type, reason } = parseLeaveDetails(leave.leave_reason);
               const requestedDays = calculateDurationDays(leave.start_date, leave.end_date);
               const isPending = leave.status === 'Pending';
@@ -1213,6 +1233,15 @@ export const ManagerDashboard: React.FC = () => {
             })}
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={filteredReviewRequests.length}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(size) => setItemsPerPage(size)}
+        />
       </div>
 
       {/* Review & Edit Dates Modal (Full Date Editor & Remarks) */}

@@ -9,6 +9,17 @@ export function validateLeaveDates(startDate: string, endDate: string): string |
     return 'Invalid date format.';
   }
 
+  // Prevent selecting dates prior to today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [sYear, sMonth, sDay] = startDate.split('-').map(Number);
+  const startMidnight = new Date(sYear, sMonth - 1, sDay);
+
+  if (startMidnight < today) {
+    return 'Cannot apply for leave on past dates. Please select today or a future date.';
+  }
+
   if (end < start) {
     return 'End date cannot be prior to start date.';
   }
