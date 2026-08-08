@@ -1,5 +1,52 @@
 @import "tailwindcss";
 
+/* Custom clean, minimal vertical scrollbar styling for ZOLLID enterprise SaaS */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 145, 130, 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(130, 115, 100, 0.65);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb,
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 95, 88, 0.5);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover,
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 150, 135, 0.75);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 145, 130, 0.4) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgba(100, 95, 88, 0.5) transparent;
+}
+
 /* Utility to hide scrollbar while keeping scroll functionality if needed */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

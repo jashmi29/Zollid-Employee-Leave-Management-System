@@ -16,11 +16,7 @@ export const AuthLayout: React.FC<Props> = ({ children, title, subtitle, badge, 
   const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className={`min-h-screen ${
-      isRegister
-        ? 'py-4 sm:py-6 overflow-y-auto'
-        : 'lg:h-screen lg:max-h-screen overflow-x-hidden lg:overflow-hidden'
-    } relative font-sans flex flex-col justify-between selection:bg-blue-600 selection:text-white transition-colors duration-300 ${
+    <div className={`min-h-screen w-full py-3 sm:py-5 lg:py-6 overflow-y-auto overflow-x-hidden relative font-sans flex flex-col justify-between selection:bg-blue-600 selection:text-white transition-colors duration-300 ${
       isDark 
         ? 'bg-[#1F1D1B] text-stone-100' 
         : 'bg-[#EAE4D8] text-[#111827]'
@@ -81,16 +77,10 @@ export const AuthLayout: React.FC<Props> = ({ children, title, subtitle, badge, 
       </header>
 
       {/* Main Content Area: Large Floating Workspace Container Centered with Generous Margins */}
-      <main className={`relative z-10 w-full max-w-[1580px] mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-5 my-auto flex-1 flex items-center justify-center min-h-0 ${
-        isRegister ? '' : 'overflow-hidden'
-      }`}>
+      <main className="relative z-10 w-full max-w-[1580px] mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-5 my-auto flex-1 flex items-center justify-center min-h-0">
         
         {/* Floating Workspace Layout Box */}
-        <div className={`w-full ${
-          isRegister
-            ? 'h-auto min-h-fit'
-            : 'h-full max-h-[820px] overflow-y-auto lg:overflow-visible'
-        } rounded-2xl sm:rounded-3xl border p-6 sm:p-8 lg:p-10 xl:p-12 transition-colors duration-200 relative flex flex-col justify-center ${
+        <div className={`w-full h-auto min-h-fit rounded-2xl sm:rounded-3xl border p-6 sm:p-8 lg:p-10 xl:p-12 transition-colors duration-200 relative flex flex-col justify-center ${
           isDark
             ? 'bg-[#292623] border-[#3D3833] shadow-[0_16px_48px_rgba(0,0,0,0.35)]'
             : 'bg-[#FFFFFF] border-[#CEC5B5] shadow-[0_12px_40px_rgba(0,0,0,0.06),0_2px_10px_rgba(0,0,0,0.03)]'
