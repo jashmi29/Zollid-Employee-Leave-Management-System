@@ -124,43 +124,6 @@ ZOLLID_MANAGER_PASSWORD="Manager@Zollid2026!"
    npm run build
    npm start
    ```
-
----
-
-## 🚀 Deployment Instructions for Vercel
-
-### Step 1: Database & Storage Setup (Supabase)
-1. Log in to [Supabase](https://supabase.com) and create a project.
-2. Go to **SQL Editor** -> New Query.
-3. Paste and run the SQL schema in `supabase/schema.sql`.
-4. Create a public storage bucket named `leave-documents` in **Storage**.
-
-### Step 2: Push Project to GitHub
-1. Create a new repository on GitHub named `zollid-leave-management-system`.
-2. Push your code:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: Production-ready Leave Management System"
-   git branch -M main
-   git remote add origin https://github.com/your-username/zollid-leave-management-system.git
-   git push -u origin main
-   ```
-
-### Step 3: Deploy to Vercel
-1. Log in to [Vercel](https://vercel.com) and click **"Add New Project"**.
-2. Select your GitHub repository (`zollid-leave-management-system`).
-3. Configure project settings:
-   - **Framework Preset**: Vite
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. Expand **Environment Variables** and add:
-   - `JWT_SECRET`: `your-random-secret-key`
-   - `SUPABASE_URL`: `https://whbdvinxoikxuyynoatl.supabase.co`
-   - `SUPABASE_ANON_KEY`: `your-supabase-anon-key`
-   - `SUPABASE_SERVICE_ROLE_KEY`: `your-supabase-service-role-key`
-5. Click **Deploy**. Vercel will build the frontend assets and host the application!
-
 ---
 
 ## 📄 License
